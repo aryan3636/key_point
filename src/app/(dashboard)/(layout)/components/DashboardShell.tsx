@@ -9,6 +9,7 @@ import { ModuleFormModal } from "@/app/(dashboard)/shared/components/form/Module
 import { ModuleImportModal } from "@/app/(dashboard)/shared/components/import/ModuleImportModal";
 import { WithModuleWorkspace } from "@/app/(dashboard)/hoc/with-module-workspace/WithModuleWorkspace";
 import { ModuleDetailFlyout } from "@/app/(dashboard)/hoc/with-module-workspace/components/ModuleDetailFlyout";
+import { ReceivePurchaseOrderFlyout } from "@/app/(dashboard)/receiving/components/ReceivePurchaseOrderFlyout";
 import { useAppState } from "@/app/context/app-state-context";
 
 export function DashboardShell() {
@@ -28,6 +29,7 @@ export function DashboardShell() {
       {formState && <ModuleFormModal state={formState} />}
       {importState && <ModuleImportModal moduleKey={importState.moduleKey} />}
       <ModuleDetailFlyout />
+      <ReceivePurchaseOrderFlyout />
       <ItemActionModal />
     </div>
   );

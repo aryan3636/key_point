@@ -49,6 +49,10 @@ export type DetailState = {
   recordId: string;
 };
 
+export type ReceiveState = {
+  poId: string;
+};
+
 type AppStateContextValue = {
   theme: ThemeMode;
   user: AuthUser | null;
@@ -58,6 +62,7 @@ type AppStateContextValue = {
   importState: ImportState | null;
   itemActionState: ItemActionState | null;
   detailState: DetailState | null;
+  receiveState: ReceiveState | null;
   query: string;
   selectedIds: Record<string, string>;
   activeList: Array<Record<string, unknown> & { id: string }>;
@@ -70,6 +75,7 @@ type AppStateContextValue = {
   setImportState: (state: ImportState | null) => void;
   setItemActionState: (state: ItemActionState | null) => void;
   setDetailState: (state: DetailState | null) => void;
+  setReceiveState: (state: ReceiveState | null) => void;
   setSelectedId: (
     moduleKey: Exclude<ModuleKey, "dashboard">,
     id: string
@@ -88,6 +94,7 @@ type AppStateContextValue = {
     rows: Array<Record<string, string>>
   ) => void;
   saveItemAction: (values: Record<string, FormDataEntryValue>) => void;
+  receivePurchaseOrder: (values: Record<string, FormDataEntryValue>) => void;
 };
 
 const AppStateContext = createContext<AppStateContextValue | undefined>(undefined);
@@ -130,6 +137,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
   const [importState, setImportState] = useState<ImportState | null>(null);
   const [itemActionState, setItemActionState] = useState<ItemActionState | null>(null);
   const [detailState, setDetailState] = useState<DetailState | null>(null);
+  const [receiveState, setReceiveState] = useState<ReceiveState | null>(null);
   const [query, setQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<Record<string, string>>({});
 
@@ -154,7 +162,12 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     if (activeModule === "dashboard") {
       return [];
     }
-    const sourceList = records[activeModule];
+    const sourceList =
+      activeModule === "receiving"
+        ? records.purchaseOrders.filter((po) =>
+            ["Open", "Partial", "Partially Received"].includes(po.status)
+          )
+        : records[activeModule];
     if (!query.trim()) {
       return sourceList as Array<Record<string, unknown> & { id: string }>;
     }
@@ -603,6 +616,101 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     setItemActionState(null);
   };
 
+  const receivePurchaseOrder = (values: Record<string, FormDataEntryValue>) => {
+    if (!receiveState) {
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const text = (key: string) => String(values[key] ?? "").trim();
+    const number = (key: string) => Number(values[key] ?? 0);
+
+    setRecords((current) => {
+      const po = current.purchaseOrders.find((entry) => entry.id === receiveState.poId);
+      if (!po) {
+        return current;
+      }
+
+      const receiptId = makeId("rcv");
+      const receipt: ReceiptRecord = {
+        id: receiptId,
+        receiptNo: text("receiptNo") || `RCV-${Math.floor(Date.now() / 1000)}`,
+        poId: po.id,
+        locationId: text("locationId") || current.locations[0]?.id || "",
+        receivedBy: text("receivedBy") || "Receiving Team",
+        packingSlip: text("packingSlip"),
+        date: text("date") || now.slice(0, 10),
+        status: "Received",
+        notes: text("notes"),
+        updatedAt: now,
+      };
+
+      const receivedByLine = po.lines.map((line, index) => ({
+        ...line,
+        receivedQty: number(`receivedQty-${index}`),
+      }));
+
+      const nextItems = current.items.map((item) => {
+        const receivedLine = receivedByLine.find((line) => line.itemId === item.id);
+        if (!receivedLine || receivedLine.receivedQty <= 0) {
+          return item;
+        }
+
+        return {
+          ...item,
+          stock: item.stock + receivedLine.receivedQty,
+          locationId: receipt.locationId,
+          updatedAt: now,
+        };
+      });
+
+      const receiptMovements: MovementRecord[] = receivedByLine
+        .filter((line) => line.receivedQty > 0)
+        .map((line) => ({
+          id: makeId("mov"),
+          itemId: line.itemId,
+          type: "Receipt",
+          qty: line.receivedQty,
+          target: receipt.receiptNo,
+          note: `Received against ${po.number}${receipt.packingSlip ? ` / ${receipt.packingSlip}` : ""}`,
+          date: receipt.date,
+        }));
+
+      const hasPartialLine = receivedByLine.some(
+        (line) => line.receivedQty > 0 && line.receivedQty < line.qty
+      );
+      const allLinesFullyReceived = receivedByLine.every(
+        (line) => line.receivedQty >= line.qty
+      );
+
+      const nextPoStatus = allLinesFullyReceived
+        ? "Fully Received"
+        : hasPartialLine || receivedByLine.some((line) => line.receivedQty > 0)
+          ? "Partially Received"
+          : po.status;
+
+      return {
+        ...current,
+        items: sortByUpdatedAt(nextItems),
+        receiving: sortByUpdatedAt([receipt, ...current.receiving]),
+        movements: [...receiptMovements, ...current.movements],
+        purchaseOrders: sortByUpdatedAt(
+          current.purchaseOrders.map((entry) =>
+            entry.id === po.id
+              ? {
+                  ...entry,
+                  status: nextPoStatus,
+                  updatedAt: now,
+                }
+              : entry
+          )
+        ),
+      };
+    });
+
+    setReceiveState(null);
+  };
+
   const value = {
     theme,
     user,
@@ -612,6 +720,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     importState,
     itemActionState,
     detailState,
+    receiveState,
     query,
     selectedIds,
     activeList,
@@ -624,11 +733,13 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     setImportState,
     setItemActionState,
     setDetailState,
+    setReceiveState,
     setSelectedId,
     saveModuleRecord,
     removeModuleRecord,
     runImport,
     saveItemAction,
+    receivePurchaseOrder,
   } satisfies AppStateContextValue;
 
   return (

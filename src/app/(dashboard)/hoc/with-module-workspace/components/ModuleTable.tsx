@@ -9,6 +9,7 @@ export function ModuleTable({
   onSelect,
   onEdit,
   onDelete,
+  onReceive,
 }: {
   moduleKey: Exclude<ModuleKey, "dashboard">;
   records: Array<Record<string, unknown> & { id: string }>;
@@ -16,6 +17,7 @@ export function ModuleTable({
   onSelect: (id: string) => void;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
+  onReceive?: (id: string) => void;
 }) {
   const columns =
     moduleKey === "items"
@@ -30,7 +32,7 @@ export function ModuleTable({
               ? ["Location", "Type", "Manager", "Capacity"]
               : moduleKey === "purchaseOrders"
                 ? ["PO", "Vendor", "Status", "Expected"]
-                : ["Receipt", "PO", "Status", "Date"];
+                : ["PO", "Vendor", "Status", "Expected"];
 
   const rowForRecord = (record: Record<string, unknown>) => {
     if (moduleKey === "items") {
@@ -82,10 +84,10 @@ export function ModuleTable({
       ];
     }
     return [
-      String(record.receiptNo),
-      String(record.poId),
+      String(record.number),
+      String(record.vendorId),
       String(record.status),
-      String(record.date),
+      String(record.expectedDate),
     ];
   };
 
@@ -108,26 +110,41 @@ export function ModuleTable({
             <span key={`${record.id}-${index}`}>{value}</span>
           ))}
           <span className="row-actions">
-            <button
-              className="table-action"
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                onEdit(record.id);
-              }}
-            >
-              Edit
-            </button>
-            <button
-              className="table-action danger"
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                onDelete(record.id);
-              }}
-            >
-              Delete
-            </button>
+            {moduleKey === "receiving" ? (
+              <button
+                className="table-action"
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onReceive?.(record.id);
+                }}
+              >
+                Receive
+              </button>
+            ) : (
+              <>
+                <button
+                  className="table-action"
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onEdit(record.id);
+                  }}
+                >
+                  Edit
+                </button>
+                <button
+                  className="table-action danger"
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onDelete(record.id);
+                  }}
+                >
+                  Delete
+                </button>
+              </>
+            )}
           </span>
         </button>
       ))}

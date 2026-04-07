@@ -852,6 +852,97 @@ button {
   font-size: 0.82rem;
 }
 
+.po-lines-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 0.25rem;
+  min-width: 0;
+}
+
+.po-lines-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.po-lines-header h3,
+.po-lines-header p {
+  margin: 0;
+}
+
+.po-lines-header p {
+  color: var(--muted);
+}
+
+.po-lines-table {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+}
+
+.po-lines-row {
+  display: grid;
+  grid-template-columns: 1.4fr 0.7fr 0.7fr 0.6fr;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.85rem 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.po-lines-create-grid {
+  grid-template-columns: minmax(240px, 1.5fr) minmax(96px, 0.55fr) minmax(120px, 0.7fr) minmax(86px, 0.45fr);
+}
+
+.receive-lines-grid {
+  grid-template-columns: 1.5fr 0.55fr 0.7fr 0.7fr;
+}
+
+.po-lines-row:first-child {
+  border-top: none;
+}
+
+.po-lines-row-header {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: color-mix(in srgb, var(--panel-strong) 88%, transparent);
+}
+
+.po-line-cell {
+  min-width: 0;
+}
+
+.po-line-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.po-line-mobile-label {
+  display: none;
+}
+
+.po-lines-row input,
+.po-lines-row select {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.58);
+  color: var(--text);
+  padding: 0.65rem 0.75rem;
+  min-height: 46px;
+  font: inherit;
+}
+
+:root[data-theme="dark"] .po-lines-row input,
+:root[data-theme="dark"] .po-lines-row select {
+  background: rgba(10, 15, 17, 0.5);
+}
+
 .modal-panel {
   width: min(760px, 100%);
   max-height: 90vh;
@@ -916,5 +1007,35 @@ button {
   .mini-row,
   .table-row {
     grid-template-columns: 1fr;
+  }
+
+  .po-lines-header {
+    flex-direction: column;
+  }
+
+  .po-lines-row-header {
+    display: none;
+  }
+
+  .po-lines-create-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .po-line-cell {
+    display: grid;
+    gap: 0.4rem;
+  }
+
+  .po-line-mobile-label {
+    display: block;
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .po-line-actions {
+    justify-content: flex-start;
   }
 }

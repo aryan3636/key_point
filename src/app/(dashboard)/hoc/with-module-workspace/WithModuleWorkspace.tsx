@@ -14,6 +14,7 @@ export function WithModuleWorkspace() {
     setFormState,
     setImportState,
     setDetailState,
+    setReceiveState,
   } = useAppState();
 
   if (activeModule === "dashboard") {
@@ -54,10 +55,14 @@ export function WithModuleWorkspace() {
           selectedId={selectedIds[activeModule]}
           onSelect={(id) => {
             setSelectedId(activeModule, id);
-            setDetailState({ moduleKey: activeModule, recordId: id });
+            setDetailState({
+              moduleKey: activeModule === "receiving" ? "purchaseOrders" : activeModule,
+              recordId: id,
+            });
           }}
           onEdit={(id) => setFormState({ moduleKey: activeModule, mode: "edit", recordId: id })}
           onDelete={(id) => removeModuleRecord(activeModule, id)}
+          onReceive={(id) => setReceiveState({ poId: id })}
         />
       </div>
     </section>

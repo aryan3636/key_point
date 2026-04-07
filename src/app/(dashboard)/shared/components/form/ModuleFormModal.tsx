@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent } from "react";
+import { FormEvent, useState } from "react";
 import { getModuleLabel } from "@/app/configs/navigation";
 import { FormState, useAppState } from "@/app/context/app-state-context";
 import { RecordsState } from "@/lib/inventoryMock";
@@ -173,11 +173,54 @@ function PurchaseOrderFields({
   record?: Record<string, unknown>;
   records: RecordsState;
 }) {
-  const lines = Array.isArray(record?.lines)
+  const initialLines = Array.isArray(record?.lines)
     ? (record.lines as Array<{ itemId: string; qty: number; rate: number }>)
-        .map((line) => `${line.itemId}, ${line.qty}, ${line.rate}`)
-        .join("\n")
-    : "item-1, 10, 450";
+    : [
+        {
+          itemId: records.items[0]?.id ?? "",
+          qty: 1,
+          rate: 0,
+        },
+      ];
+
+  const [lines, setLines] = useState(initialLines);
+
+  const updateLine = (
+    index: number,
+    key: "itemId" | "qty" | "rate",
+    value: string
+  ) => {
+    setLines((current) =>
+      current.map((line, lineIndex) =>
+        lineIndex === index
+          ? {
+              ...line,
+              [key]: key === "itemId" ? value : Number(value),
+            }
+          : line
+      )
+    );
+  };
+
+  const addLine = () => {
+    setLines((current) => [
+      ...current,
+      {
+        itemId: records.items[0]?.id ?? "",
+        qty: 1,
+        rate: 0,
+      },
+    ]);
+  };
+
+  const removeLine = (index: number) => {
+    setLines((current) => current.filter((_, lineIndex) => lineIndex !== index));
+  };
+
+  const serializedLines = lines
+    .filter((line) => line.itemId)
+    .map((line) => `${line.itemId}, ${line.qty}, ${line.rate}`)
+    .join("\n");
 
   return (
     <>
@@ -210,7 +253,74 @@ function PurchaseOrderFields({
             : ""
         }
       />
-      <FormTextArea name="lines" label="PO Lines" defaultValue={lines} />
+      <input type="hidden" name="lines" value={serializedLines} readOnly />
+      <section className="po-lines-section field-full">
+        <div className="po-lines-header">
+          <div>
+            <h3>PO Lines</h3>
+            <p>Select item, quantity, and price for each purchase order line.</p>
+          </div>
+          <button className="secondary-button" type="button" onClick={addLine}>
+            Add Line
+          </button>
+        </div>
+        <div className="po-lines-table">
+          <div className="po-lines-row po-lines-create-grid po-lines-row-header">
+            <span>Item</span>
+            <span>Qty</span>
+            <span>Price</span>
+            <span>Actions</span>
+          </div>
+          {lines.map((line, index) => (
+            <div className="po-lines-row po-lines-create-grid" key={`${line.itemId}-${index}`}>
+              <div className="po-line-cell">
+                <span className="po-line-mobile-label">Item</span>
+                <select
+                  aria-label={`PO line ${index + 1} item`}
+                  value={line.itemId}
+                  onChange={(event) => updateLine(index, "itemId", event.target.value)}
+                >
+                  {records.items.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="po-line-cell">
+                <span className="po-line-mobile-label">Qty</span>
+                <input
+                  aria-label={`PO line ${index + 1} quantity`}
+                  type="number"
+                  min="0"
+                  value={line.qty}
+                  onChange={(event) => updateLine(index, "qty", event.target.value)}
+                />
+              </div>
+              <div className="po-line-cell">
+                <span className="po-line-mobile-label">Price</span>
+                <input
+                  aria-label={`PO line ${index + 1} price`}
+                  type="number"
+                  min="0"
+                  value={line.rate}
+                  onChange={(event) => updateLine(index, "rate", event.target.value)}
+                />
+              </div>
+              <div className="po-line-cell po-line-actions">
+                <button
+                  className="table-action danger"
+                  type="button"
+                  onClick={() => removeLine(index)}
+                  disabled={lines.length === 1}
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
     </>
   );
 }
