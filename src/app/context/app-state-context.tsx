@@ -3,6 +3,8 @@
 import {
   AUTH_KEY,
   AuthUser,
+  generateNextNumber,
+  generateSku,
   ItemRecord,
   LocationRecord,
   makeId,
@@ -53,6 +55,11 @@ export type ReceiveState = {
   poId: string;
 };
 
+export type ItemDateFilter = {
+  from: string;
+  to: string;
+};
+
 type AppStateContextValue = {
   theme: ThemeMode;
   user: AuthUser | null;
@@ -64,6 +71,7 @@ type AppStateContextValue = {
   detailState: DetailState | null;
   receiveState: ReceiveState | null;
   query: string;
+  itemDateFilter: ItemDateFilter;
   selectedIds: Record<string, string>;
   activeList: Array<Record<string, unknown> & { id: string }>;
   selectedRecord: (Record<string, unknown> & { id: string }) | null;
@@ -71,6 +79,9 @@ type AppStateContextValue = {
   setTheme: (updater: ThemeMode | ((current: ThemeMode) => ThemeMode)) => void;
   setActiveModule: (moduleKey: ModuleKey) => void;
   setQuery: (value: string) => void;
+  setItemDateFilter: (
+    updater: ItemDateFilter | ((current: ItemDateFilter) => ItemDateFilter)
+  ) => void;
   setFormState: (state: FormState | null) => void;
   setImportState: (state: ImportState | null) => void;
   setItemActionState: (state: ItemActionState | null) => void;
@@ -128,6 +139,41 @@ function readStoredRecords(): RecordsState {
   return savedState ? (JSON.parse(savedState) as RecordsState) : seedRecords();
 }
 
+function parseJson<T>(value: string, fallback: T): T {
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+function findLocationIdByReceiptLocation(
+  locations: LocationRecord[],
+  receivedLocation: string
+) {
+  const lower = receivedLocation.toLowerCase();
+  return (
+    locations.find((location) => location.type.toLowerCase().includes(lower))?.id ??
+    locations[0]?.id ??
+    ""
+  );
+}
+
+function findItemIdByPoLine(records: RecordsState, line: PurchaseOrderRecord["lines"][number]) {
+  return (
+    records.items.find((item) => item.sku === line.sku)?.id ??
+    records.items.find((item) => item.title === line.description)?.id ??
+    ""
+  );
+}
+
+function nextReceiptNumber(records: RecordsState) {
+  return generateNextNumber(
+    "RCV",
+    records.receiving.map((receipt) => receipt.receiptNo)
+  );
+}
+
 export function AppStateProvider({ children }: PropsWithChildren) {
   const [theme, setTheme] = useState<ThemeMode>(readStoredTheme);
   const [user, setUser] = useState<AuthUser | null>(readStoredUser);
@@ -139,6 +185,10 @@ export function AppStateProvider({ children }: PropsWithChildren) {
   const [detailState, setDetailState] = useState<DetailState | null>(null);
   const [receiveState, setReceiveState] = useState<ReceiveState | null>(null);
   const [query, setQuery] = useState("");
+  const [itemDateFilter, setItemDateFilter] = useState<ItemDateFilter>({
+    from: "",
+    to: "",
+  });
   const [selectedIds, setSelectedIds] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -162,12 +212,27 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     if (activeModule === "dashboard") {
       return [];
     }
-    const sourceList =
+
+    let sourceList =
       activeModule === "receiving"
         ? records.purchaseOrders.filter((po) =>
             ["Open", "Partial", "Partially Received"].includes(po.status)
           )
-        : records[activeModule];
+        : [...records[activeModule]];
+
+    if (activeModule === "items" && (itemDateFilter.from || itemDateFilter.to)) {
+      sourceList = sourceList.filter((entry) => {
+        const updatedAt = new Date(String(entry.updatedAt));
+        if (itemDateFilter.from && updatedAt < new Date(`${itemDateFilter.from}T00:00:00`)) {
+          return false;
+        }
+        if (itemDateFilter.to && updatedAt > new Date(`${itemDateFilter.to}T23:59:59`)) {
+          return false;
+        }
+        return true;
+      });
+    }
+
     if (!query.trim()) {
       return sourceList as Array<Record<string, unknown> & { id: string }>;
     }
@@ -176,7 +241,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     return sourceList.filter((entry) =>
       JSON.stringify(entry).toLowerCase().includes(lower)
     ) as Array<Record<string, unknown> & { id: string }>;
-  }, [activeModule, query, records]);
+  }, [activeModule, itemDateFilter.from, itemDateFilter.to, query, records]);
 
   const selectedRecord = useMemo(() => {
     if (activeModule === "dashboard") {
@@ -192,6 +257,9 @@ export function AppStateProvider({ children }: PropsWithChildren) {
   const setActiveModule = (moduleKey: ModuleKey) => {
     setActiveModuleState(moduleKey);
     setQuery("");
+    if (moduleKey !== "items") {
+      setItemDateFilter({ from: "", to: "" });
+    }
   };
 
   const setSelectedId = (
@@ -239,11 +307,18 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       if (moduleKey === "vendors") {
         const record: VendorRecord = {
           id,
+          number:
+            text("number") ||
+            generateNextNumber(
+              "VND",
+              current.vendors.map((vendor) => vendor.number)
+            ),
           name: text("name"),
           contact: text("contact"),
           phone: text("phone"),
           email: text("email"),
           category: text("category"),
+          address: text("address"),
           updatedAt: now,
         };
         next.vendors = sortByUpdatedAt(
@@ -304,26 +379,23 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       }
 
       if (moduleKey === "purchaseOrders") {
-        const lines = text("lines")
-          .split("\n")
-          .map((line) => line.trim())
-          .filter(Boolean)
-          .map((line) => {
-            const [itemId, qty, rate] = line.split(",").map((part) => part.trim());
-            return { itemId, qty: Number(qty), rate: Number(rate) };
-          });
-
+        const lines = parseJson<PurchaseOrderRecord["lines"]>(text("lines"), []);
         const record: PurchaseOrderRecord = {
           id,
-          number: text("number"),
+          number:
+            text("number") ||
+            generateNextNumber(
+              "PO",
+              current.purchaseOrders.map((po) => po.number)
+            ),
           vendorId: text("vendorId"),
-          status: text("status"),
+          status: existingId
+            ? current.purchaseOrders.find((entry) => entry.id === id)?.status ?? "Open"
+            : "Open",
           orderDate: text("orderDate"),
           expectedDate: text("expectedDate"),
-          projectIds: text("projectIds")
-            .split(",")
-            .map((value) => value.trim())
-            .filter(Boolean),
+          projectId: text("projectId"),
+          orderedBy: text("orderedBy"),
           lines,
           updatedAt: now,
         };
@@ -335,16 +407,18 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       }
 
       if (moduleKey === "receiving") {
+        const parsedLines = parseJson<ReceiptRecord["lines"]>(text("lines"), []);
         const record: ReceiptRecord = {
           id,
-          receiptNo: text("receiptNo"),
+          receiptNo: text("receiptNo") || nextReceiptNumber(current),
           poId: text("poId"),
-          locationId: text("locationId"),
+          receivedLocation: text("receivedLocation"),
           receivedBy: text("receivedBy"),
-          packingSlip: text("packingSlip"),
-          date: text("date"),
-          status: text("status"),
+          packingSlipImage: text("packingSlipImage"),
+          date: text("date") || now.slice(0, 10),
+          status: text("status") || "Partial",
           notes: text("notes"),
+          lines: parsedLines,
           updatedAt: now,
         };
         next.receiving = sortByUpdatedAt(
@@ -387,6 +461,12 @@ export function AppStateProvider({ children }: PropsWithChildren) {
         next.vendors = sortByUpdatedAt([
           ...rows.map((row, index) => ({
             id: makeId("ven"),
+            number:
+              row.number ||
+              generateNextNumber(
+                "VND",
+                [...current.vendors, ...next.vendors ?? []].map((vendor) => vendor.number)
+              ),
             name: row.name || `Imported Vendor ${index + 1}`,
             contact: row.contact || `Imported Contact ${index + 1}`,
             phone: row.phone || "+91 90000 00000",
@@ -394,6 +474,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
               row.email ||
               `${(row.name || `vendor.${index + 1}`).toLowerCase().replace(/\s+/g, ".")}@import.test`,
             category: row.category || "Imported",
+            address: row.address || "Imported vendor address",
             updatedAt: now,
           })),
           ...current.vendors,
@@ -476,49 +557,62 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       if (moduleKey === "purchaseOrders") {
         next.purchaseOrders = sortByUpdatedAt([
           ...rows.map((row, index) => {
+            const projectId =
+              current.projects.find((project) => project.name === row.projectName)?.id ?? "";
             const parsedLines = (row.lines || "")
               .split(";")
               .map((line) => line.trim())
               .filter(Boolean)
               .map((line) => {
-                const [itemName, qty, rate] = line.split("|").map((part) => part.trim());
+                const [description, category, unit, qty, price] = line
+                  .split("|")
+                  .map((part) => part.trim());
                 return {
-                  itemId:
-                    current.items.find((item) => item.title === itemName)?.id ??
-                    current.items[index % current.items.length]?.id ??
-                    "",
+                  description: description || `Imported Line ${index + 1}`,
+                  category: category || "Plywood",
+                  sku: generateSku(
+                    category || "Plywood",
+                    current.purchaseOrders.flatMap((po) => po.lines.map((poLine) => poLine.sku))
+                  ),
+                  unit: unit || "Nos",
                   qty: Number(qty || 0),
-                  rate: Number(rate || 0),
+                  price: Number(price || 0),
                 };
               });
 
             return {
               id: makeId("po"),
-              number: row.number || `PO-IMP-${index + 1}`,
+              number:
+                row.number ||
+                generateNextNumber(
+                  "PO",
+                  current.purchaseOrders.map((po) => po.number)
+                ),
               vendorId:
                 current.vendors.find((vendor) => vendor.name === row.vendorName)?.id ??
                 current.vendors[0]?.id ??
                 "",
-              status: row.status || "Open",
-              orderDate: row.orderDate || "2026-04-06",
-              expectedDate: row.expectedDate || "2026-04-15",
-              projectIds: (row.projectNames || "")
-                .split(",")
-                .map((value) => value.trim())
-                .filter(Boolean)
-                .map(
-                  (projectName) =>
-                    current.projects.find((project) => project.name === projectName)?.id
-                )
-                .filter(Boolean) as string[],
+              status: "Open",
+              orderDate: row.orderDate || now.slice(0, 10),
+              expectedDate: row.expectedDate || now.slice(0, 10),
+              projectId,
+              orderedBy: row.orderedBy || current.workers[0]?.name || "Imported Buyer",
               lines:
                 parsedLines.length > 0
                   ? parsedLines
                   : [
                       {
-                        itemId: current.items[index % current.items.length]?.id ?? "",
+                        description: `Imported Line ${index + 1}`,
+                        category: "Plywood",
+                        sku: generateSku(
+                          "Plywood",
+                          current.purchaseOrders.flatMap((po) =>
+                            po.lines.map((poLine) => poLine.sku)
+                          )
+                        ),
+                        unit: "Nos",
                         qty: 10 + index * 5,
-                        rate: 500,
+                        price: 500,
                       },
                     ],
               updatedAt: now,
@@ -537,15 +631,13 @@ export function AppStateProvider({ children }: PropsWithChildren) {
               current.purchaseOrders.find((po) => po.number === row.poNumber)?.id ??
               current.purchaseOrders[0]?.id ??
               "",
-            locationId:
-              current.locations.find((location) => location.name === row.locationName)?.id ??
-              current.locations[0]?.id ??
-              "",
+            receivedLocation: row.receivedLocation || "Warehouse",
             receivedBy: row.receivedBy || current.workers[0]?.name || "Imported Receiver",
-            packingSlip: row.packingSlip || "IMPORTED-SLIP",
-            date: row.date || "2026-04-06",
+            packingSlipImage: row.packingSlipImage || "",
+            date: row.date || now.slice(0, 10),
             status: row.status || "Partial",
             notes: row.notes || "Imported via CSV bulk upload.",
+            lines: [],
             updatedAt: now,
           })),
           ...current.receiving,
@@ -623,7 +715,6 @@ export function AppStateProvider({ children }: PropsWithChildren) {
 
     const now = new Date().toISOString();
     const text = (key: string) => String(values[key] ?? "").trim();
-    const number = (key: string) => Number(values[key] ?? 0);
 
     setRecords((current) => {
       const po = current.purchaseOrders.find((entry) => entry.id === receiveState.poId);
@@ -631,63 +722,68 @@ export function AppStateProvider({ children }: PropsWithChildren) {
         return current;
       }
 
-      const receiptId = makeId("rcv");
+      const lines = parseJson<ReceiptRecord["lines"]>(text("lines"), []);
+      const hasShortShipment = lines.some((line) => line.receivedQty < line.orderedQty);
       const receipt: ReceiptRecord = {
-        id: receiptId,
-        receiptNo: text("receiptNo") || `RCV-${Math.floor(Date.now() / 1000)}`,
+        id: makeId("rcv"),
+        receiptNo: text("receiptNo") || nextReceiptNumber(current),
         poId: po.id,
-        locationId: text("locationId") || current.locations[0]?.id || "",
+        receivedLocation: text("receivedLocation") || "Warehouse",
         receivedBy: text("receivedBy") || "Receiving Team",
-        packingSlip: text("packingSlip"),
+        packingSlipImage: text("packingSlipImage"),
         date: text("date") || now.slice(0, 10),
-        status: "Received",
+        status: hasShortShipment ? "Partial" : "Received In Full",
         notes: text("notes"),
+        lines,
         updatedAt: now,
       };
 
-      const receivedByLine = po.lines.map((line, index) => ({
-        ...line,
-        receivedQty: number(`receivedQty-${index}`),
-      }));
+      const locationId = findLocationIdByReceiptLocation(
+        current.locations,
+        receipt.receivedLocation
+      );
 
       const nextItems = current.items.map((item) => {
-        const receivedLine = receivedByLine.find((line) => line.itemId === item.id);
+        const poLine = po.lines.find((line) => findItemIdByPoLine(current, line) === item.id);
+        if (!poLine) {
+          return item;
+        }
+
+        const receivedLine = lines.find((line) => line.sku === poLine.sku);
         if (!receivedLine || receivedLine.receivedQty <= 0) {
           return item;
         }
 
         return {
           ...item,
-          stock: item.stock + receivedLine.receivedQty,
-          locationId: receipt.locationId,
+          stock: item.stock + Math.max(receivedLine.receivedQty - receivedLine.damagedQty, 0),
+          locationId,
           updatedAt: now,
         };
       });
 
-      const receiptMovements: MovementRecord[] = receivedByLine
-        .filter((line) => line.receivedQty > 0)
-        .map((line) => ({
-          id: makeId("mov"),
-          itemId: line.itemId,
-          type: "Receipt",
-          qty: line.receivedQty,
-          target: receipt.receiptNo,
-          note: `Received against ${po.number}${receipt.packingSlip ? ` / ${receipt.packingSlip}` : ""}`,
-          date: receipt.date,
-        }));
+      const receiptMovements: MovementRecord[] = po.lines
+        .map((line) => {
+          const itemId = findItemIdByPoLine(current, line);
+          const receivedLine = lines.find((entry) => entry.sku === line.sku);
+          if (!itemId || !receivedLine || receivedLine.receivedQty <= 0) {
+            return null;
+          }
 
-      const hasPartialLine = receivedByLine.some(
-        (line) => line.receivedQty > 0 && line.receivedQty < line.qty
-      );
-      const allLinesFullyReceived = receivedByLine.every(
-        (line) => line.receivedQty >= line.qty
-      );
-
-      const nextPoStatus = allLinesFullyReceived
-        ? "Fully Received"
-        : hasPartialLine || receivedByLine.some((line) => line.receivedQty > 0)
-          ? "Partially Received"
-          : po.status;
+          const damageNote =
+            receivedLine.damagedQty > 0 ? ` / Damaged ${receivedLine.damagedQty}` : "";
+          const slipNote = receipt.packingSlipImage ? " / Packing slip attached" : "";
+          return {
+            id: makeId("mov"),
+            itemId,
+            type: "Receipt" as const,
+            qty: Math.max(receivedLine.receivedQty - receivedLine.damagedQty, 0),
+            target: receipt.receiptNo,
+            note: `Received against ${po.number}${damageNote}${slipNote}`,
+            date: receipt.date,
+          };
+        })
+        .filter(Boolean) as MovementRecord[];
 
       return {
         ...current,
@@ -699,7 +795,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
             entry.id === po.id
               ? {
                   ...entry,
-                  status: nextPoStatus,
+                  status: hasShortShipment ? "Partially Received" : "Fully Received",
                   updatedAt: now,
                 }
               : entry
@@ -722,6 +818,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     detailState,
     receiveState,
     query,
+    itemDateFilter,
     selectedIds,
     activeList,
     selectedRecord,
@@ -729,6 +826,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     setTheme,
     setActiveModule,
     setQuery,
+    setItemDateFilter,
     setFormState,
     setImportState,
     setItemActionState,

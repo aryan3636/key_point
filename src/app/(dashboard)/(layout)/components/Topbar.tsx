@@ -4,7 +4,16 @@ import { navigationItems } from "@/app/configs/navigation";
 import { useAppState } from "@/app/context/app-state-context";
 
 export function Topbar() {
-  const { activeModule, query, setQuery, setTheme, theme, setUser } = useAppState();
+  const {
+    activeModule,
+    query,
+    setQuery,
+    itemDateFilter,
+    setItemDateFilter,
+    setTheme,
+    theme,
+    setUser,
+  } = useAppState();
 
   return (
     <header className="topbar">
@@ -20,6 +29,26 @@ export function Topbar() {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
+        )}
+        {activeModule === "items" && (
+          <>
+            <input
+              className="search-input compact"
+              type="date"
+              value={itemDateFilter.from}
+              onChange={(event) =>
+                setItemDateFilter((current) => ({ ...current, from: event.target.value }))
+              }
+            />
+            <input
+              className="search-input compact"
+              type="date"
+              value={itemDateFilter.to}
+              onChange={(event) =>
+                setItemDateFilter((current) => ({ ...current, to: event.target.value }))
+              }
+            />
+          </>
         )}
         <button
           className="secondary-button"

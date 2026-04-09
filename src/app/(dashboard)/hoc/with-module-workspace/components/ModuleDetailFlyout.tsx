@@ -11,7 +11,6 @@ export function ModuleDetailFlyout() {
     records,
     setDetailState,
     setFormState,
-    setItemActionState,
   } = useAppState();
 
   if (!detailState) {
@@ -34,7 +33,6 @@ export function ModuleDetailFlyout() {
         record={record as (Record<string, unknown> & { id: string }) | null}
         records={records}
         onEdit={(id) => setFormState({ moduleKey: detailState.moduleKey, mode: "edit", recordId: id })}
-        onItemAction={(itemId, action) => setItemActionState({ itemId, action })}
       />
     </BaseFlyout>
   );

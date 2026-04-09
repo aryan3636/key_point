@@ -24,7 +24,7 @@ function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
-    maximumFractionDigits: 0,
+    maximumFractionDigits: 2,
   }).format(value);
 }
 
@@ -76,13 +76,11 @@ export function ModuleDetail({
   record,
   records,
   onEdit,
-  onItemAction,
 }: {
   moduleKey: Exclude<ModuleKey, "dashboard">;
   record: (Record<string, unknown> & { id: string }) | null;
   records: RecordsState;
   onEdit: (id: string) => void;
-  onItemAction: (itemId: string, action: "Issue" | "Return" | "Waste" | "Adjust") => void;
 }) {
   if (!record) {
     return (
@@ -98,6 +96,13 @@ export function ModuleDetail({
     const vendor = records.vendors.find((entry) => entry.id === item.vendorId);
     const movements = records.movements.filter((entry) => entry.itemId === item.id);
     const availableQty = item.stock - item.assignedQty;
+    const allocatedProjects = Array.from(
+      new Set(
+        records.movements
+          .filter((movement) => movement.itemId === item.id && movement.type === "Issue")
+          .map((movement) => movement.target)
+      )
+    );
 
     return (
       <div className="detail-stack">
@@ -121,28 +126,11 @@ export function ModuleDetail({
           <p>Category: {item.category}</p>
           <p>Vendor: {vendor?.name ?? "Not linked"}</p>
           <p>Location: {location?.name ?? "Not linked"}</p>
+          <p>
+            Projects allocated:{" "}
+            {allocatedProjects.length > 0 ? allocatedProjects.join(", ") : "Not allocated yet"}
+          </p>
           <p>Notes: {item.notes || "No notes yet."}</p>
-        </section>
-        <section className="detail-section">
-          <h3>Actions</h3>
-          <div className="pill-actions">
-            {(["Issue", "Return", "Waste", "Adjust"] as const).map((action) => (
-              <button
-                className="secondary-button"
-                key={action}
-                type="button"
-                onClick={() => onItemAction(item.id, action)}
-              >
-                {action === "Issue"
-                  ? "Issue Material"
-                  : action === "Return"
-                    ? "Return Material"
-                    : action === "Waste"
-                      ? "Log Waste"
-                      : "Adjust Quantity"}
-              </button>
-            ))}
-          </div>
         </section>
         <section className="detail-section">
           <h3>Movement History</h3>
@@ -168,12 +156,13 @@ export function ModuleDetail({
     return (
       <DetailScaffold
         title={vendor.name}
-        subtitle={vendor.category}
+        subtitle={vendor.number}
         onEdit={() => onEdit(vendor.id)}
         sections={[
           ["Contact", vendor.contact],
           ["Phone", vendor.phone],
           ["Email", vendor.email],
+          ["Address", vendor.address],
           ["Open purchase orders", String(relatedPOs.length)],
         ]}
       />
@@ -182,7 +171,7 @@ export function ModuleDetail({
 
   if (moduleKey === "projects") {
     const project = record as unknown as ProjectRecord;
-    const taggedPOs = records.purchaseOrders.filter((po) => po.projectIds.includes(project.id));
+    const taggedPOs = records.purchaseOrders.filter((po) => po.projectId === project.id);
     const issuedMaterials = records.movements.filter((movement) => movement.target === project.name);
     return (
       <DetailScaffold
@@ -240,6 +229,7 @@ export function ModuleDetail({
   if (moduleKey === "purchaseOrders") {
     const po = record as unknown as PurchaseOrderRecord;
     const vendor = records.vendors.find((entry) => entry.id === po.vendorId);
+    const project = records.projects.find((entry) => entry.id === po.projectId);
     return (
       <div className="detail-stack">
         <div className="detail-header">
@@ -255,18 +245,25 @@ export function ModuleDetail({
           <InfoCard label="Vendor" value={vendor?.name ?? po.vendorId} />
           <InfoCard label="Order date" value={formatDate(po.orderDate)} />
           <InfoCard label="Expected" value={formatDate(po.expectedDate)} />
-          <InfoCard label="Projects tagged" value={String(po.projectIds.length)} />
+          <InfoCard label="Project" value={project?.name ?? "No project"} />
         </div>
+        <section className="detail-section">
+          <h3>PO Overview</h3>
+          <p>Order placed by: {po.orderedBy}</p>
+          <p>Vendor address: {vendor?.address ?? "Not available"}</p>
+        </section>
         <section className="detail-section">
           <h3>PO Lines</h3>
           <div className="timeline">
             {po.lines.map((line, index) => (
-              <div className="timeline-row" key={`${po.id}-${index}`}>
-                <strong>
-                  {records.items.find((item) => item.id === line.itemId)?.title ?? line.itemId}
-                </strong>
-                <span>{line.qty} qty</span>
-                <span>{formatCurrency(line.rate)}</span>
+              <div className="timeline-row po-line-summary" key={`${po.id}-${index}`}>
+                <strong>{line.description}</strong>
+                <span>{line.sku}</span>
+                <span>{line.category}</span>
+                <span>
+                  {line.qty} {line.unit}
+                </span>
+                <span>{formatCurrency(line.price)}</span>
               </div>
             ))}
           </div>
@@ -277,20 +274,57 @@ export function ModuleDetail({
 
   const receipt = record as unknown as ReceiptRecord;
   const po = records.purchaseOrders.find((entry) => entry.id === receipt.poId);
-  const location = records.locations.find((entry) => entry.id === receipt.locationId);
   return (
-    <DetailScaffold
-      title={receipt.receiptNo}
-      subtitle={receipt.status}
-      onEdit={() => onEdit(receipt.id)}
-      sections={[
-        ["Purchase order", po?.number ?? receipt.poId],
-        ["Packing slip", receipt.packingSlip],
-        ["Received by", receipt.receivedBy],
-        ["Date", formatDate(receipt.date)],
-        ["Location", location?.name ?? receipt.locationId],
-        ["Notes", receipt.notes],
-      ]}
-    />
+    <div className="detail-stack">
+      <div className="detail-header">
+        <div>
+          <h2>{receipt.receiptNo}</h2>
+          <p>{receipt.status}</p>
+        </div>
+        <button className="primary-button" onClick={() => onEdit(receipt.id)} type="button">
+          Edit
+        </button>
+      </div>
+      <section className="detail-section">
+        <div className="detail-line">
+          <strong>Purchase order</strong>
+          <span>{po?.number ?? receipt.poId}</span>
+        </div>
+        <div className="detail-line">
+          <strong>Received by</strong>
+          <span>{receipt.receivedBy}</span>
+        </div>
+        <div className="detail-line">
+          <strong>Date</strong>
+          <span>{formatDate(receipt.date)}</span>
+        </div>
+        <div className="detail-line">
+          <strong>Location</strong>
+          <span>{receipt.receivedLocation}</span>
+        </div>
+        <div className="detail-line">
+          <strong>Packing slip</strong>
+          <span>{receipt.packingSlipImage ? "Image attached" : "Not required"}</span>
+        </div>
+        <div className="detail-line">
+          <strong>Notes</strong>
+          <span>{receipt.notes || "No notes"}</span>
+        </div>
+      </section>
+      <section className="detail-section">
+        <h3>Receipt Lines</h3>
+        <div className="timeline">
+          {receipt.lines.map((line) => (
+            <div className="timeline-row po-line-summary" key={`${receipt.id}-${line.sku}`}>
+              <strong>{line.sku}</strong>
+              <span>Ordered {line.orderedQty}</span>
+              <span>Received {line.receivedQty}</span>
+              <span>Slip qty {line.qtyOnPackingSlip}</span>
+              <span>Damaged {line.damagedQty}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
   );
 }

@@ -30,7 +30,7 @@ export function DashboardView() {
       0
     );
     const stockValue = records.purchaseOrders.reduce((total, po) => {
-      const poValue = po.lines.reduce((sum, line) => sum + line.qty * line.rate, 0);
+      const poValue = po.lines.reduce((sum, line) => sum + line.qty * line.price, 0);
       return total + poValue;
     }, 0);
 

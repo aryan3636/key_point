@@ -25,11 +25,13 @@ export type ItemRecord = {
 
 export type VendorRecord = {
   id: string;
+  number: string;
   name: string;
   contact: string;
   phone: string;
   email: string;
   category: string;
+  address: string;
   updatedAt: string;
 };
 
@@ -69,11 +71,15 @@ export type PurchaseOrderRecord = {
   status: string;
   orderDate: string;
   expectedDate: string;
-  projectIds: string[];
+  projectId: string;
+  orderedBy: string;
   lines: Array<{
-    itemId: string;
+    description: string;
+    category: string;
+    sku: string;
+    unit: string;
     qty: number;
-    rate: number;
+    price: number;
   }>;
   updatedAt: string;
 };
@@ -82,12 +88,19 @@ export type ReceiptRecord = {
   id: string;
   receiptNo: string;
   poId: string;
-  locationId: string;
+  receivedLocation: string;
   receivedBy: string;
-  packingSlip: string;
+  packingSlipImage: string;
   date: string;
   status: string;
   notes: string;
+  lines: Array<{
+    sku: string;
+    orderedQty: number;
+    receivedQty: number;
+    qtyOnPackingSlip: number;
+    damagedQty: number;
+  }>;
   updatedAt: string;
 };
 
@@ -118,7 +131,7 @@ export type AuthUser = {
   role: string;
 };
 
-export const STORAGE_KEY = "key-point-mvp-state-v1";
+export const STORAGE_KEY = "key-point-mvp-state-v2";
 export const THEME_KEY = "key-point-theme-v1";
 export const AUTH_KEY = "key-point-auth-v1";
 
@@ -126,34 +139,85 @@ export function makeId(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+export const categoryPrefixMap: Record<string, string> = {
+  Glue: "GLU",
+  Plywood: "PLY",
+  Metal: "MTL",
+  Concrete: "CEM",
+  Steel: "STL",
+  Electrical: "ELE",
+  Finishing: "FIN",
+  Timber: "TMB",
+};
+
+export const purchaseOrderCategories = Object.keys(categoryPrefixMap);
+
+export function getSkuPrefix(category: string) {
+  const fallbackPrefix = category
+    .trim()
+    .slice(0, 3)
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+  return (
+    categoryPrefixMap[category] ??
+    (fallbackPrefix || "SKU")
+  );
+}
+
+export function generateNextNumber(prefix: string, values: string[]) {
+  const max = values.reduce((highest, value) => {
+    const numeric = Number(value.replace(/\D/g, ""));
+    return Number.isFinite(numeric) ? Math.max(highest, numeric) : highest;
+  }, 0);
+  return `${prefix}-${String(max + 1).padStart(3, "0")}`;
+}
+
+export function generateSku(category: string, existingSkus: string[]) {
+  const prefix = getSkuPrefix(category);
+  const max = existingSkus.reduce((highest, sku) => {
+    if (!sku.startsWith(`${prefix}-`)) {
+      return highest;
+    }
+    const numeric = Number(sku.slice(prefix.length + 1));
+    return Number.isFinite(numeric) ? Math.max(highest, numeric) : highest;
+  }, 100);
+  return `${prefix}-${max + 1}`;
+}
+
 export function seedRecords(): RecordsState {
   return {
     vendors: [
       {
         id: "vendor-1",
+        number: "VND-001",
         name: "Metro Build Supplies",
         contact: "Aarav Singh",
         phone: "+91 98765 11223",
         email: "orders@metrobuild.test",
         category: "General Materials",
+        address: "12 Sector Market Road, Noida",
         updatedAt: "2026-04-06T09:15:00.000Z",
       },
       {
         id: "vendor-2",
+        number: "VND-002",
         name: "Prime Electricals",
         contact: "Riya Mehta",
         phone: "+91 99887 66554",
         email: "sales@primeelectricals.test",
         category: "Electrical",
+        address: "44 Industrial Estate, Gurugram",
         updatedAt: "2026-04-05T12:40:00.000Z",
       },
       {
         id: "vendor-3",
+        number: "VND-003",
         name: "Stonecraft Aggregates",
         contact: "Dev Khanna",
         phone: "+91 98110 90909",
         email: "dispatch@stonecraft.test",
         category: "Concrete and Aggregates",
+        address: "8 Crusher Zone, Faridabad",
         updatedAt: "2026-04-04T07:20:00.000Z",
       },
     ],
@@ -307,10 +371,25 @@ export function seedRecords(): RecordsState {
         status: "Open",
         orderDate: "2026-04-01",
         expectedDate: "2026-04-09",
-        projectIds: ["project-1", "project-2"],
+        projectId: "project-1",
+        orderedBy: "Aarav Meena",
         lines: [
-          { itemId: "item-1", qty: 300, rate: 390 },
-          { itemId: "item-2", qty: 120, rate: 710 },
+          {
+            description: "OPC Cement 50kg",
+            category: "Concrete",
+            sku: "CEM-101",
+            unit: "Bags",
+            qty: 300,
+            price: 390,
+          },
+          {
+            description: "16mm TMT Rebar",
+            category: "Metal",
+            sku: "MTL-101",
+            unit: "Nos",
+            qty: 120,
+            price: 710.5,
+          },
         ],
         updatedAt: "2026-04-05T12:15:00.000Z",
       },
@@ -321,10 +400,25 @@ export function seedRecords(): RecordsState {
         status: "Partial",
         orderDate: "2026-04-02",
         expectedDate: "2026-04-07",
-        projectIds: ["project-1"],
+        projectId: "project-1",
+        orderedBy: "Neha Chauhan",
         lines: [
-          { itemId: "item-3", qty: 40, rate: 1650 },
-          { itemId: "item-4", qty: 50, rate: 430 },
+          {
+            description: "LED Panel 2x2",
+            category: "Electrical",
+            sku: "ELE-101",
+            unit: "Nos",
+            qty: 40,
+            price: 1650,
+          },
+          {
+            description: "Ceramic Tile Adhesive",
+            category: "Glue",
+            sku: "GLU-101",
+            unit: "Bags",
+            qty: 50,
+            price: 430.75,
+          },
         ],
         updatedAt: "2026-04-06T06:55:00.000Z",
       },
@@ -334,24 +428,56 @@ export function seedRecords(): RecordsState {
         id: "rcv-1",
         receiptNo: "RCV-9001",
         poId: "po-2",
-        locationId: "location-1",
+        receivedLocation: "Warehouse",
         receivedBy: "Imran Sheikh",
-        packingSlip: "PS-4481",
+        packingSlipImage: "packing-slip-4481.jpg",
         date: "2026-04-05",
         status: "Partial",
         notes: "18 LED panels received. Remaining due tomorrow.",
+        lines: [
+          {
+            sku: "ELE-101",
+            orderedQty: 40,
+            receivedQty: 18,
+            qtyOnPackingSlip: 18,
+            damagedQty: 0,
+          },
+          {
+            sku: "GLU-101",
+            orderedQty: 50,
+            receivedQty: 50,
+            qtyOnPackingSlip: 0,
+            damagedQty: 0,
+          },
+        ],
         updatedAt: "2026-04-05T17:15:00.000Z",
       },
       {
         id: "rcv-2",
         receiptNo: "RCV-9002",
         poId: "po-1",
-        locationId: "location-2",
+        receivedLocation: "Site",
         receivedBy: "Rohit Yadav",
-        packingSlip: "PS-4520",
+        packingSlipImage: "",
         date: "2026-04-06",
         status: "Full",
         notes: "TMT bars unloaded directly at site store.",
+        lines: [
+          {
+            sku: "CEM-101",
+            orderedQty: 300,
+            receivedQty: 300,
+            qtyOnPackingSlip: 0,
+            damagedQty: 0,
+          },
+          {
+            sku: "MTL-101",
+            orderedQty: 120,
+            receivedQty: 120,
+            qtyOnPackingSlip: 0,
+            damagedQty: 0,
+          },
+        ],
         updatedAt: "2026-04-06T09:25:00.000Z",
       },
     ],

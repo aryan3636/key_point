@@ -31,10 +31,10 @@ export const importTemplates: Record<ImportModuleKey, ImportTemplate> = {
     fileName: "vendors-sample.csv",
     title: "Import Vendors",
     description: "Upload supplier details including contact, phone, email, and trade category.",
-    headers: ["name", "contact", "phone", "email", "category"],
+    headers: ["number", "name", "contact", "phone", "email", "category", "address"],
     sampleRows: [
-      ["Metro Build Supplies", "Aarav Singh", "+91 98765 11223", "orders@metrobuild.test", "General Materials"],
-      ["PanelCraft Timbers", "Nisha Khurana", "+91 98220 33344", "sales@panelcraft.test", "Timber and Boards"],
+      ["VND-010", "Metro Build Supplies", "Aarav Singh", "+91 98765 11223", "orders@metrobuild.test", "General Materials", "12 Sector Market Road, Noida"],
+      ["VND-011", "PanelCraft Timbers", "Nisha Khurana", "+91 98220 33344", "sales@panelcraft.test", "Timber and Boards", "91 Timber Lane, Gurugram"],
     ],
     instructions: [
       "Keep one vendor per row.",
@@ -91,14 +91,14 @@ export const importTemplates: Record<ImportModuleKey, ImportTemplate> = {
     fileName: "purchase-orders-sample.csv",
     title: "Import Purchase Orders",
     description: "Upload PO headers with vendor, project tags, and compact line summaries for demo purposes.",
-    headers: ["number", "vendorName", "status", "orderDate", "expectedDate", "projectNames", "lines"],
+    headers: ["number", "vendorName", "orderedBy", "orderDate", "expectedDate", "projectName", "lines"],
     sampleRows: [
-      ["PO-201", "Metro Build Supplies", "Open", "2026-04-06", "2026-04-14", "Luxury Villa Fitout, Retail Joinery Rollout", "Birch Plywood 18mm|20|1650;Laminate Edge Band|12|450"],
-      ["PO-202", "PanelCraft Timbers", "Partial", "2026-04-07", "2026-04-16", "Luxury Villa Fitout", "Teak Veneer Sheet|15|2100"],
+      ["PO-201", "Metro Build Supplies", "Aarav Singh", "2026-04-06", "2026-04-14", "Luxury Villa Fitout", "Birch Plywood 18mm|Plywood|Sheets|20|1650;Laminate Edge Band|Finishing|Rolls|12|450"],
+      ["PO-202", "PanelCraft Timbers", "Nisha Khurana", "2026-04-07", "2026-04-16", "Luxury Villa Fitout", "Teak Veneer Sheet|Plywood|Sheets|15|2100"],
     ],
     instructions: [
       "Use existing vendor and project names.",
-      "For lines, use the format Item Name|Qty|Rate separated by semicolons.",
+      "For lines, use the format Description|Category|Unit|Qty|Price separated by semicolons.",
       "Imported POs remain editable from the PO flyout.",
     ],
   },
@@ -106,16 +106,15 @@ export const importTemplates: Record<ImportModuleKey, ImportTemplate> = {
     fileName: "receiving-sample.csv",
     title: "Import Receipts",
     description: "Upload receipt logs against purchase orders with location and packing slip details.",
-    headers: ["receiptNo", "poNumber", "locationName", "receivedBy", "packingSlip", "date", "status", "notes"],
+    headers: ["receiptNo", "poNumber", "receivedLocation", "receivedBy", "packingSlipImage", "date", "status", "notes"],
     sampleRows: [
-      ["RCV-9101", "PO-201", "Central Yard", "Imran Sheikh", "PS-5001", "2026-04-08", "Partial", "First plywood lot received"],
-      ["RCV-9102", "PO-202", "Workshop Rack A", "Kabir Rana", "PS-5002", "2026-04-09", "Full", "All veneer sheets checked and stored"],
+      ["RCV-9101", "PO-201", "Warehouse", "Imran Sheikh", "packing-slip-5001.jpg", "2026-04-08", "Partial", "First plywood lot received"],
+      ["RCV-9102", "PO-202", "Site", "Kabir Rana", "", "2026-04-09", "Received In Full", "All veneer sheets checked and stored"],
     ],
     instructions: [
-      "Match the PO number and location name to existing records.",
-      "Status can be Partial or Full for the MVP.",
+      "Match the PO number to an existing purchase order.",
+      "Received location should be Warehouse or Site.",
       "This import is useful for demoing backfilled receiving history.",
     ],
   },
 };
-
