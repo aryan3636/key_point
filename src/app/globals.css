@@ -192,8 +192,8 @@ button {
 .content-shell {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
-  padding: 1.5rem;
+  gap: 1.85rem;
+  padding: 1.75rem;
 }
 
 .topbar,
@@ -229,7 +229,24 @@ button {
 
 .topbar,
 .panel {
-  padding: 1.25rem;
+  padding: 1.5rem;
+}
+
+.topbar,
+.panel {
+  gap: 1.35rem;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar > div:first-child,
+.panel-header > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
 }
 
 .topbar h1,
@@ -239,8 +256,22 @@ button {
   margin: 0.2rem 0 0;
 }
 
+.panel-header {
+  align-items: flex-start;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
+}
+
+.panel-header p,
+.detail-header p,
+.topbar p {
+  margin: 0;
+  line-height: 1.55;
+}
+
 .topbar-actions {
   flex-wrap: wrap;
+  row-gap: 0.85rem;
 }
 
 .search-input,
@@ -304,7 +335,7 @@ button {
 .dashboard-grid,
 .workspace-grid {
   display: grid;
-  gap: 1.25rem;
+  gap: 1.5rem;
 }
 
 .workspace-grid {
@@ -320,7 +351,7 @@ button {
 .detail-grid,
 .form-grid {
   display: grid;
-  gap: 1rem;
+  gap: 1.15rem;
 }
 
 .card-grid {
@@ -375,15 +406,16 @@ button {
   overflow: hidden;
   border-radius: 1.2rem;
   border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel-strong) 92%, transparent);
 }
 
 .table-row {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr)) 120px;
-  gap: 0.75rem;
+  gap: 1rem;
   align-items: center;
   width: 100%;
-  padding: 0.95rem 1rem;
+  padding: 1.15rem 1.2rem;
   border: none;
   border-top: 1px solid var(--line);
   background: transparent;
@@ -398,6 +430,13 @@ button {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+  background: color-mix(in srgb, var(--panel-strong) 96%, transparent);
+}
+
+.table-row span {
+  line-height: 1.45;
 }
 
 .record-row:hover,
@@ -460,7 +499,7 @@ button {
 
 .empty-state,
 .empty-detail {
-  padding: 1.25rem 0;
+  padding: 1.5rem 0;
 }
 
 .login-shell {
@@ -1065,6 +1104,16 @@ button {
     grid-template-columns: 220px 1fr;
   }
 
+  .content-shell {
+    gap: 1.5rem;
+    padding: 1.4rem;
+  }
+
+  .topbar,
+  .panel {
+    padding: 1.35rem;
+  }
+
   .login-layout {
     grid-template-columns: 1fr;
   }
@@ -1117,6 +1166,7 @@ button {
 
   .table-row {
     min-width: 100%;
+    padding: 1rem 1.05rem;
   }
 
   .po-lines-header {
@@ -1147,6 +1197,27 @@ button {
 
   .po-line-actions {
     justify-content: flex-start;
+  }
+}
+
+@media (min-width: 821px) and (max-width: 1180px) {
+  .content-shell {
+    gap: 1.55rem;
+    padding: 1.5rem;
+  }
+
+  .topbar,
+  .panel {
+    padding: 1.4rem;
+  }
+
+  .panel-header {
+    padding-bottom: 1.05rem;
+  }
+
+  .table-row {
+    gap: 0.9rem;
+    padding: 1rem 1.05rem;
   }
 }
 
