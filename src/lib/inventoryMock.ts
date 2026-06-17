@@ -3,6 +3,7 @@ export type ModuleKey =
   | "items"
   | "vendors"
   | "projects"
+  | "cutLists"
   | "workers"
   | "locations"
   | "purchaseOrders"
@@ -42,6 +43,32 @@ export type ProjectRecord = {
   status: string;
   location: string;
   budget: number;
+  updatedAt: string;
+};
+
+export type CutListRecord = {
+  id: string;
+  projectId: string;
+  code: string;
+  itemName: string;
+  cabinetCategory: "Base" | "Upper" | "Tower / Tall" | "Open";
+  cabinetSubtype: "Standard" | "Shelves" | "Drawer" | "Sink";
+  cabinetUse: "standardBaseCabinet" | "shelvingCabinet" | "drawerBank";
+  width: number;
+  height: number;
+  depth: number;
+  quantity: number;
+  interiorMaterial: string;
+  materialThickness: number;
+  doorThickness: number;
+  bumperAllowance: number;
+  finishedSides: "Front" | "Front and Back";
+  backOption: "fullBack" | "noBack";
+  shelfQty: number;
+  shelfType: "Fixed Shelf" | "Adjustable Shelf - Pins" | "Adjustable Shelf - Pilasters";
+  shelfFinish: string;
+  status: "Draft" | "Ready" | "Issued";
+  notes: string;
   updatedAt: string;
 };
 
@@ -118,6 +145,7 @@ export type RecordsState = {
   items: ItemRecord[];
   vendors: VendorRecord[];
   projects: ProjectRecord[];
+  cutLists: CutListRecord[];
   workers: WorkerRecord[];
   locations: LocationRecord[];
   purchaseOrders: PurchaseOrderRecord[];
@@ -248,6 +276,83 @@ export function seedRecords(): RecordsState {
         location: "Faridabad Yard",
         budget: 2150000,
         updatedAt: "2026-04-03T11:30:00.000Z",
+      },
+    ],
+    cutLists: [
+      {
+        id: "cut-1",
+        projectId: "project-1",
+        code: "B1",
+        itemName: "Reception base cabinet",
+        cabinetCategory: "Base",
+        cabinetSubtype: "Standard",
+        cabinetUse: "standardBaseCabinet",
+        width: 30,
+        height: 30.5,
+        depth: 24,
+        quantity: 2,
+        interiorMaterial: "5/8 White Melamine",
+        materialThickness: 0.625,
+        doorThickness: 0.75,
+        bumperAllowance: 0.125,
+        finishedSides: "Front",
+        backOption: "fullBack",
+        shelfQty: 0,
+        shelfType: "Fixed Shelf",
+        shelfFinish: "White",
+        status: "Ready",
+        notes: "Standard base run for lobby reception.",
+        updatedAt: "2026-04-06T12:15:00.000Z",
+      },
+      {
+        id: "cut-2",
+        projectId: "project-1",
+        code: "B2",
+        itemName: "Printer cabinet with adjustable shelf",
+        cabinetCategory: "Base",
+        cabinetSubtype: "Shelves",
+        cabinetUse: "shelvingCabinet",
+        width: 36,
+        height: 34.5,
+        depth: 24,
+        quantity: 1,
+        interiorMaterial: "3/4 White Melamine",
+        materialThickness: 0.75,
+        doorThickness: 0.75,
+        bumperAllowance: 0.125,
+        finishedSides: "Front",
+        backOption: "fullBack",
+        shelfQty: 2,
+        shelfType: "Adjustable Shelf - Pins",
+        shelfFinish: "White",
+        status: "Draft",
+        notes: "Confirm printer clearance before issuing.",
+        updatedAt: "2026-04-05T15:20:00.000Z",
+      },
+      {
+        id: "cut-3",
+        projectId: "project-2",
+        code: "B3",
+        itemName: "Villa pantry sink base",
+        cabinetCategory: "Base",
+        cabinetSubtype: "Sink",
+        cabinetUse: "standardBaseCabinet",
+        width: 33,
+        height: 34.5,
+        depth: 24,
+        quantity: 3,
+        interiorMaterial: "5/8 Plywood",
+        materialThickness: 0.625,
+        doorThickness: 0.75,
+        bumperAllowance: 0.125,
+        finishedSides: "Front and Back",
+        backOption: "noBack",
+        shelfQty: 0,
+        shelfType: "Fixed Shelf",
+        shelfFinish: "Matching",
+        status: "Ready",
+        notes: "No back for plumbing access.",
+        updatedAt: "2026-04-04T13:45:00.000Z",
       },
     ],
     workers: [

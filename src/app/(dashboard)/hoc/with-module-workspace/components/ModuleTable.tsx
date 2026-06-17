@@ -33,13 +33,15 @@ export function ModuleTable({
         ? ["Vendor No", "Vendor", "Contact", "Updated"]
         : moduleKey === "projects"
           ? ["Project", "Code", "Status", "Location"]
-          : moduleKey === "workers"
-            ? ["Worker", "Role", "Phone", "Assigned"]
-            : moduleKey === "locations"
-              ? ["Location", "Type", "Manager", "Capacity"]
-              : moduleKey === "purchaseOrders"
-                ? ["PO", "Vendor", "Project", "Expected"]
-                : ["PO", "Vendor", "Status", "Expected"];
+          : moduleKey === "cutLists"
+            ? ["Cabinet", "Project", "Size", "Status"]
+            : moduleKey === "workers"
+              ? ["Worker", "Role", "Phone", "Assigned"]
+              : moduleKey === "locations"
+                ? ["Location", "Type", "Manager", "Capacity"]
+                : moduleKey === "purchaseOrders"
+                  ? ["PO", "Vendor", "Project", "Expected"]
+                  : ["PO", "Vendor", "Status", "Expected"];
 
   const rowForRecord = (record: Record<string, unknown>) => {
     if (moduleKey === "items") {
@@ -64,6 +66,15 @@ export function ModuleTable({
         String(record.code),
         String(record.status),
         String(record.location),
+      ];
+    }
+    if (moduleKey === "cutLists") {
+      const project = recordsState.projects.find((entry) => entry.id === record.projectId);
+      return [
+        `${String(record.code)} - ${String(record.itemName)}`,
+        project?.name ?? "No project",
+        `${String(record.width)} x ${String(record.height)} x ${String(record.depth)}`,
+        String(record.status),
       ];
     }
     if (moduleKey === "workers") {

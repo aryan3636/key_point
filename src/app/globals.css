@@ -439,6 +439,47 @@ button {
   line-height: 1.45;
 }
 
+.compact-table {
+  overflow-x: auto;
+}
+
+.cutlist-row {
+  grid-template-columns: 1.15fr 70px 1.2fr 1fr 90px 1fr;
+  min-width: 860px;
+}
+
+.cutlist-row.with-source {
+  grid-template-columns: 1.05fr 70px 1.2fr 0.95fr 80px 1.25fr 1fr;
+  min-width: 1080px;
+}
+
+.cutlist-group-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.segmented-control {
+  display: inline-flex;
+  padding: 0.25rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel-strong) 84%, transparent);
+}
+
+.segmented-control button {
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  padding: 0.55rem 0.9rem;
+}
+
+.segmented-control button.is-active {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
 .record-row:hover,
 .record-row.is-selected {
   background: var(--accent-soft);

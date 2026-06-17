@@ -2,6 +2,7 @@
 
 import {
   ItemRecord,
+  CutListRecord,
   LocationRecord,
   ModuleKey,
   ProjectRecord,
@@ -11,6 +12,7 @@ import {
   VendorRecord,
   WorkerRecord,
 } from "@/lib/inventoryMock";
+import { generateCabinetCutListRows } from "@/lib/cutListEngine";
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("en-IN", {
@@ -186,6 +188,53 @@ export function ModuleDetail({
           ["Issued materials", String(issuedMaterials.length)],
         ]}
       />
+    );
+  }
+
+  if (moduleKey === "cutLists") {
+    const cutList = record as unknown as CutListRecord;
+    const project = records.projects.find((entry) => entry.id === cutList.projectId);
+    const generatedRows = generateCabinetCutListRows(cutList, records.projects);
+
+    return (
+      <div className="detail-stack">
+        <div className="detail-header">
+          <div>
+            <h2>{cutList.code}</h2>
+            <p>{cutList.itemName}</p>
+          </div>
+          <button className="primary-button" onClick={() => onEdit(cutList.id)} type="button">
+            Edit cabinet
+          </button>
+        </div>
+        <div className="detail-grid">
+          <InfoCard label="Project" value={project?.name ?? "No project"} />
+          <InfoCard label="Status" value={cutList.status} />
+          <InfoCard label="Cabinet qty" value={String(cutList.quantity)} />
+          <InfoCard label="Generated rows" value={String(generatedRows.length)} />
+        </div>
+        <section className="detail-section">
+          <h3>Cabinet Inputs</h3>
+          <p>Type: {cutList.cabinetCategory} / {cutList.cabinetSubtype}</p>
+          <p>Size: {cutList.width} x {cutList.height} x {cutList.depth} in</p>
+          <p>Material: {cutList.interiorMaterial} ({cutList.materialThickness} in)</p>
+          <p>Back option: {cutList.backOption === "fullBack" ? "Full Back" : "No Back / Rails"}</p>
+          <p>Notes: {cutList.notes || "No notes yet."}</p>
+        </section>
+        <section className="detail-section">
+          <h3>Generated Parts</h3>
+          <div className="timeline">
+            {generatedRows.map((row, index) => (
+              <div className="timeline-row po-line-summary" key={`${row.partName}-${index}`}>
+                <strong>{row.partName}</strong>
+                <span>{row.quantity}</span>
+                <span>{row.width} x {row.heightDepth} x {row.thickness}</span>
+                <span>{row.edgeBanding}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
     );
   }
 

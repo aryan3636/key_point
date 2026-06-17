@@ -57,6 +57,21 @@ export const importTemplates: Record<ImportModuleKey, ImportTemplate> = {
       "Imported projects become available immediately in worker and PO forms.",
     ],
   },
+  cutLists: {
+    fileName: "cut-lists-sample.csv",
+    title: "Import Cut Lists",
+    description: "Upload project-linked cabinet rows that generate cabinet and production cut lists.",
+    headers: ["projectName", "code", "itemName", "cabinetSubtype", "width", "height", "depth", "quantity", "interiorMaterial", "materialThickness", "doorThickness", "backOption", "shelfQty", "shelfType", "status", "notes"],
+    sampleRows: [
+      ["North Tower Fitout", "B10", "Pantry base cabinet", "Standard", "30", "34.5", "24", "2", "5/8 White Melamine", "0.625", "0.75", "fullBack", "0", "Fixed Shelf", "Ready", "Imported demo cabinet"],
+      ["Riverside Villas", "B11", "Laundry adjustable shelf cabinet", "Shelves", "36", "34.5", "24", "1", "3/4 White Melamine", "0.75", "0.75", "fullBack", "2", "Adjustable Shelf - Pins", "Draft", "Imported shelf cabinet"],
+    ],
+    instructions: [
+      "Use an existing project name so the cabinet row links to the project module.",
+      "Cabinet subtype can be Standard, Shelves, Drawer, or Sink.",
+      "Use fullBack or noBack for the back option.",
+    ],
+  },
   workers: {
     fileName: "workers-sample.csv",
     title: "Import Workers",

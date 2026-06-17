@@ -5,6 +5,7 @@ import { getModuleLabel } from "@/app/configs/navigation";
 import { FormState, useAppState } from "@/app/context/app-state-context";
 import {
   categoryPrefixMap,
+  CutListRecord,
   generateNextNumber,
   generateSku,
   PurchaseOrderRecord,
@@ -48,6 +49,7 @@ export function ModuleFormModal({ state }: { state: FormState }) {
           {state.moduleKey === "items" && <ItemFields record={record} records={records} />}
           {state.moduleKey === "vendors" && <VendorFields record={record} records={records} />}
           {state.moduleKey === "projects" && <ProjectFields record={record} />}
+          {state.moduleKey === "cutLists" && <CutListFields record={record} records={records} />}
           {state.moduleKey === "workers" && <WorkerFields record={record} records={records} />}
           {state.moduleKey === "locations" && <LocationFields record={record} />}
           {state.moduleKey === "purchaseOrders" && (
@@ -175,6 +177,175 @@ function ProjectFields({ record }: { record?: Record<string, unknown> }) {
         type="number"
         defaultValue={String(record?.budget ?? 0)}
       />
+    </>
+  );
+}
+
+function CutListFields({
+  record,
+  records,
+}: {
+  record?: Record<string, unknown>;
+  records: RecordsState;
+}) {
+  const materialOptions = [
+    { value: "5/8 White Melamine", label: "5/8 White Melamine" },
+    { value: "3/4 White Melamine", label: "3/4 White Melamine" },
+    { value: "5/8 Plywood", label: "5/8 Plywood" },
+    { value: "3/4 Plywood", label: "3/4 Plywood" },
+  ];
+  const materialThicknessByName: Record<string, number> = {
+    "5/8 White Melamine": 0.625,
+    "3/4 White Melamine": 0.75,
+    "5/8 Plywood": 0.625,
+    "3/4 Plywood": 0.75,
+  };
+  const defaultMaterial = String(record?.interiorMaterial ?? "5/8 White Melamine");
+
+  return (
+    <>
+      <FormSelectField
+        name="projectId"
+        label="Project"
+        defaultValue={String(record?.projectId ?? records.projects[0]?.id ?? "")}
+        options={records.projects.map((project) => ({
+          value: project.id,
+          label: `${project.name} (${project.code})`,
+        }))}
+      />
+      <FormField name="code" label="Cabinet Code" defaultValue={String(record?.code ?? "")} />
+      <FormField
+        name="itemName"
+        label="Item Name"
+        defaultValue={String(record?.itemName ?? "")}
+      />
+      <FormSelectField
+        name="cabinetCategory"
+        label="Cabinet Category"
+        defaultValue={String(record?.cabinetCategory ?? "Base")}
+        options={["Base", "Upper", "Tower / Tall", "Open"].map((value) => ({ value, label: value }))}
+      />
+      <FormSelectField
+        name="cabinetSubtype"
+        label="Cabinet Subtype"
+        defaultValue={String(record?.cabinetSubtype ?? "Standard")}
+        options={["Standard", "Shelves", "Drawer", "Sink"].map((value) => ({ value, label: value }))}
+      />
+      <FormSelectField
+        name="cabinetUse"
+        label="Cabinet Use"
+        defaultValue={String(record?.cabinetUse ?? "standardBaseCabinet")}
+        options={[
+          { value: "standardBaseCabinet", label: "Standard Base Cabinet" },
+          { value: "shelvingCabinet", label: "Shelving Cabinet" },
+          { value: "drawerBank", label: "Drawer Bank" },
+        ]}
+      />
+      <FormField
+        name="width"
+        label="Width (in)"
+        type="number"
+        step="0.001"
+        defaultValue={String(record?.width ?? 30)}
+      />
+      <FormField
+        name="height"
+        label="Height (in)"
+        type="number"
+        step="0.001"
+        defaultValue={String(record?.height ?? 34.5)}
+      />
+      <FormField
+        name="depth"
+        label="Full Cabinet Depth (in)"
+        type="number"
+        step="0.001"
+        defaultValue={String(record?.depth ?? 24)}
+      />
+      <FormField
+        name="quantity"
+        label="Cabinet Qty"
+        type="number"
+        defaultValue={String(record?.quantity ?? 1)}
+      />
+      <FormSelectField
+        name="interiorMaterial"
+        label="Interior Material"
+        defaultValue={defaultMaterial}
+        options={materialOptions}
+      />
+      <FormField
+        name="materialThickness"
+        label="Material Thickness (in)"
+        type="number"
+        step="0.001"
+        defaultValue={String(record?.materialThickness ?? materialThicknessByName[defaultMaterial] ?? 0.625)}
+      />
+      <FormField
+        name="doorThickness"
+        label="Door Thickness (in)"
+        type="number"
+        step="0.001"
+        defaultValue={String(record?.doorThickness ?? 0.75)}
+      />
+      <FormField
+        name="bumperAllowance"
+        label="Bumper Allowance (in)"
+        type="number"
+        step="0.001"
+        defaultValue={String(record?.bumperAllowance ?? 0.125)}
+      />
+      <FormSelectField
+        name="finishedSides"
+        label="Finished Sides"
+        defaultValue={String(record?.finishedSides ?? "Front")}
+        options={[
+          { value: "Front", label: "Front" },
+          { value: "Front and Back", label: "Front and Back" },
+        ]}
+      />
+      <FormSelectField
+        name="backOption"
+        label="Back Option"
+        defaultValue={String(record?.backOption ?? "fullBack")}
+        options={[
+          { value: "fullBack", label: "Full Back" },
+          { value: "noBack", label: "No Back / Rails" },
+        ]}
+      />
+      <FormField
+        name="shelfQty"
+        label="Shelf Qty"
+        type="number"
+        required={false}
+        defaultValue={String(record?.shelfQty ?? 0)}
+      />
+      <FormSelectField
+        name="shelfType"
+        label="Shelf Type"
+        defaultValue={String(record?.shelfType ?? "Fixed Shelf")}
+        options={[
+          { value: "Fixed Shelf", label: "Fixed Shelf" },
+          { value: "Adjustable Shelf - Pins", label: "Adjustable Shelf - Pins" },
+          { value: "Adjustable Shelf - Pilasters", label: "Adjustable Shelf - Pilasters" },
+        ]}
+      />
+      <FormSelectField
+        name="shelfFinish"
+        label="Shelf Finish"
+        defaultValue={String(record?.shelfFinish ?? "White")}
+        options={["White", "Black", "Matching"].map((value) => ({ value, label: value }))}
+      />
+      <FormSelectField
+        name="status"
+        label="Status"
+        defaultValue={String(record?.status ?? "Draft")}
+        options={(["Draft", "Ready", "Issued"] as CutListRecord["status"][]).map((value) => ({
+          value,
+          label: value,
+        }))}
+      />
+      <FormTextArea name="notes" label="Notes" defaultValue={String(record?.notes ?? "")} />
     </>
   );
 }
