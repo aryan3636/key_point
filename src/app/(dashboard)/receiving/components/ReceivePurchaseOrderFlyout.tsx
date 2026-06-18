@@ -128,6 +128,7 @@ function ReceivePurchaseOrderForm({
       onClose={onClose}
       title={`Receive ${po.number}`}
       width={880}
+      zIndex={1210}
     >
       <form className="flyout-form" onSubmit={submit}>
         <div className="form-grid">

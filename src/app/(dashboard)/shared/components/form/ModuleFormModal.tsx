@@ -43,6 +43,7 @@ export function ModuleFormModal({ state }: { state: FormState }) {
       onClose={() => setFormState(null)}
       title={`${state.mode === "create" ? "Create" : "Edit"} ${getModuleLabel(state.moduleKey)}`}
       width={760}
+      zIndex={1210}
     >
       <form className="flyout-form" onSubmit={submit}>
         <div className="form-grid">
@@ -193,6 +194,7 @@ function CutListFields({
     { value: "3/4 White Melamine", label: "3/4 White Melamine" },
     { value: "5/8 Plywood", label: "5/8 Plywood" },
     { value: "3/4 Plywood", label: "3/4 Plywood" },
+    { value: "Custom", label: "Custom" },
   ];
   const materialThicknessByName: Record<string, number> = {
     "5/8 White Melamine": 0.625,
@@ -200,7 +202,9 @@ function CutListFields({
     "5/8 Plywood": 0.625,
     "3/4 Plywood": 0.75,
   };
-  const defaultMaterial = String(record?.interiorMaterial ?? "5/8 White Melamine");
+  const defaultMaterial = record?.customMaterialName
+    ? "Custom"
+    : String(record?.interiorMaterial ?? "5/8 White Melamine");
 
   return (
     <>
@@ -232,32 +236,31 @@ function CutListFields({
         options={["Standard", "Shelves", "Drawer", "Sink"].map((value) => ({ value, label: value }))}
       />
       <FormSelectField
-        name="cabinetUse"
-        label="Cabinet Use"
-        defaultValue={String(record?.cabinetUse ?? "standardBaseCabinet")}
+        name="inputUnit"
+        label="Input Unit"
+        defaultValue={String(record?.inputUnit ?? "in")}
         options={[
-          { value: "standardBaseCabinet", label: "Standard Base Cabinet" },
-          { value: "shelvingCabinet", label: "Shelving Cabinet" },
-          { value: "drawerBank", label: "Drawer Bank" },
+          { value: "in", label: "in" },
+          { value: "mm", label: "mm" },
         ]}
       />
       <FormField
         name="width"
-        label="Width (in)"
+        label="Width"
         type="number"
         step="0.001"
         defaultValue={String(record?.width ?? 30)}
       />
       <FormField
         name="height"
-        label="Height (in)"
+        label="Height"
         type="number"
         step="0.001"
         defaultValue={String(record?.height ?? 34.5)}
       />
       <FormField
         name="depth"
-        label="Full Cabinet Depth (in)"
+        label="Full Cabinet Depth"
         type="number"
         step="0.001"
         defaultValue={String(record?.depth ?? 24)}
@@ -275,22 +278,36 @@ function CutListFields({
         options={materialOptions}
       />
       <FormField
+        name="customMaterialName"
+        label="Custom Material Name"
+        required={false}
+        defaultValue={String(record?.customMaterialName ?? "")}
+      />
+      <FormField
+        name="customMaterialThickness"
+        label="Custom Material Thickness"
+        type="number"
+        step="0.001"
+        required={false}
+        defaultValue={String(record?.customMaterialThickness ?? 0)}
+      />
+      <FormField
         name="materialThickness"
-        label="Material Thickness (in)"
+        label="Material Thickness"
         type="number"
         step="0.001"
         defaultValue={String(record?.materialThickness ?? materialThicknessByName[defaultMaterial] ?? 0.625)}
       />
       <FormField
         name="doorThickness"
-        label="Door Thickness (in)"
+        label="Door Thickness"
         type="number"
         step="0.001"
         defaultValue={String(record?.doorThickness ?? 0.75)}
       />
       <FormField
         name="bumperAllowance"
-        label="Bumper Allowance (in)"
+        label="Bumper Allowance"
         type="number"
         step="0.001"
         defaultValue={String(record?.bumperAllowance ?? 0.125)}
@@ -303,6 +320,32 @@ function CutListFields({
           { value: "Front", label: "Front" },
           { value: "Front and Back", label: "Front and Back" },
         ]}
+      />
+      <FormSelectField
+        name="upperBottomCondition"
+        label="Upper Bottom Condition"
+        defaultValue={String(record?.upperBottomCondition ?? "Regular / Visible Bottom")}
+        options={[
+          { value: "Regular / Visible Bottom", label: "Regular / Visible Bottom" },
+          { value: "Finished Bottom", label: "Finished Bottom" },
+          { value: "Light Valance", label: "Light Valance" },
+        ]}
+      />
+      <FormField
+        name="finishedMaterialThicknessM2"
+        label="Finished Material Thickness M2"
+        type="number"
+        step="0.001"
+        required={false}
+        defaultValue={String(record?.finishedMaterialThicknessM2 ?? 0)}
+      />
+      <FormField
+        name="lightValanceHeight"
+        label="Light Valance Height"
+        type="number"
+        step="0.001"
+        required={false}
+        defaultValue={String(record?.lightValanceHeight ?? 0)}
       />
       <FormSelectField
         name="backOption"
@@ -335,6 +378,37 @@ function CutListFields({
         label="Shelf Finish"
         defaultValue={String(record?.shelfFinish ?? "White")}
         options={["White", "Black", "Matching"].map((value) => ({ value, label: value }))}
+      />
+      <FormSelectField
+        name="slideType"
+        label="Drawer Bank Slide Type"
+        defaultValue={String(record?.slideType ?? "")}
+        options={[
+          { value: "", label: "Not a drawer bank" },
+          { value: "ballBearing", label: "Ball Bearing" },
+          { value: "undermount", label: "Undermount" },
+        ]}
+      />
+      <FormField
+        name="slideLength"
+        label="Drawer Bank Slide Length"
+        type="number"
+        step="0.001"
+        required={false}
+        defaultValue={String(record?.slideLength ?? 0)}
+      />
+      <FormField
+        name="drawerQty"
+        label="Drawer Bank Drawer Qty"
+        type="number"
+        required={false}
+        defaultValue={String(record?.drawerQty ?? 0)}
+      />
+      <FormField
+        name="drawerHeights"
+        label="Drawer Heights (comma separated)"
+        required={false}
+        defaultValue={Array.isArray(record?.drawerHeights) ? record.drawerHeights.join(", ") : ""}
       />
       <FormSelectField
         name="status"

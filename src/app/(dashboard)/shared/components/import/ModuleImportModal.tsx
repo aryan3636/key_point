@@ -128,6 +128,7 @@ export function ModuleImportModal({
       onClose={() => setImportState(null)}
       title={config.title}
       width={650}
+      zIndex={1210}
     >
       <div className="import-flyout">
         <div className="import-callout">

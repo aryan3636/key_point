@@ -195,6 +195,7 @@ export function ModuleDetail({
     const cutList = record as unknown as CutListRecord;
     const project = records.projects.find((entry) => entry.id === cutList.projectId);
     const generatedRows = generateCabinetCutListRows(cutList, records.projects);
+    const drawerHeights = Array.isArray(cutList.drawerHeights) ? cutList.drawerHeights : [];
 
     return (
       <div className="detail-stack">
@@ -216,9 +217,35 @@ export function ModuleDetail({
         <section className="detail-section">
           <h3>Cabinet Inputs</h3>
           <p>Type: {cutList.cabinetCategory} / {cutList.cabinetSubtype}</p>
-          <p>Size: {cutList.width} x {cutList.height} x {cutList.depth} in</p>
+          <p>
+            Size: {cutList.width} x {cutList.height} x {cutList.depth} in
+            {cutList.inputUnit === "mm" ? " (converted from mm input)" : ""}
+          </p>
           <p>Material: {cutList.interiorMaterial} ({cutList.materialThickness} in)</p>
+          {cutList.customMaterialName && (
+            <p>
+              Custom material: {cutList.customMaterialName} ({cutList.customMaterialThickness} in)
+            </p>
+          )}
+          {cutList.cabinetCategory === "Upper" && (
+            <p>
+              Bottom condition: {cutList.upperBottomCondition}
+              {cutList.upperBottomCondition === "Finished Bottom"
+                ? ` (${cutList.finishedMaterialThicknessM2} in M2)`
+                : ""}
+              {cutList.upperBottomCondition === "Light Valance"
+                ? ` (${cutList.lightValanceHeight} in LV)`
+                : ""}
+            </p>
+          )}
           <p>Back option: {cutList.backOption === "fullBack" ? "Full Back" : "No Back / Rails"}</p>
+          {cutList.cabinetSubtype === "Drawer" && (
+            <p>
+              Drawer bank: {cutList.slideType || "No slide type"} slides, {cutList.slideLength || 0} in
+              slide length, {cutList.drawerQty || 0} drawers
+              {drawerHeights.length ? ` (${drawerHeights.join(", ")} in)` : ""}
+            </p>
+          )}
           <p>Notes: {cutList.notes || "No notes yet."}</p>
         </section>
         <section className="detail-section">

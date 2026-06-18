@@ -132,6 +132,47 @@ function readStoredUser(): AuthUser | null {
   return savedUser ? (JSON.parse(savedUser) as AuthUser) : null;
 }
 
+function normalizeStoredCutList(record: Partial<CutListRecord>): CutListRecord {
+  const cabinetCategory = (record.cabinetCategory || "Base") as CutListRecord["cabinetCategory"];
+  const cabinetSubtype = (record.cabinetSubtype || "Standard") as CutListRecord["cabinetSubtype"];
+
+  return {
+    id: record.id || makeId("cut"),
+    projectId: record.projectId || "",
+    code: record.code || "",
+    itemName: record.itemName || "",
+    cabinetCategory,
+    cabinetSubtype,
+    cabinetUse: record.cabinetUse || getCutListUse(cabinetCategory, cabinetSubtype),
+    inputUnit: record.inputUnit || "in",
+    width: record.width || 0,
+    height: record.height || 0,
+    depth: record.depth || 0,
+    quantity: record.quantity || 1,
+    interiorMaterial: record.interiorMaterial || "5/8 White Melamine",
+    customMaterialName: record.customMaterialName || "",
+    customMaterialThickness: record.customMaterialThickness || 0,
+    materialThickness: record.materialThickness || 0.625,
+    doorThickness: record.doorThickness || 0.75,
+    bumperAllowance: record.bumperAllowance || 0.125,
+    finishedSides: record.finishedSides || "Front",
+    upperBottomCondition: record.upperBottomCondition || "Regular / Visible Bottom",
+    finishedMaterialThicknessM2: record.finishedMaterialThicknessM2 || 0,
+    lightValanceHeight: record.lightValanceHeight || 0,
+    backOption: record.backOption || "fullBack",
+    shelfQty: record.shelfQty || 0,
+    shelfType: record.shelfType || "Fixed Shelf",
+    shelfFinish: record.shelfFinish || "White",
+    slideType: record.slideType || "",
+    slideLength: record.slideLength || 0,
+    drawerQty: record.drawerQty || 0,
+    drawerHeights: Array.isArray(record.drawerHeights) ? record.drawerHeights : [],
+    status: record.status || "Draft",
+    notes: record.notes || "",
+    updatedAt: record.updatedAt || new Date().toISOString(),
+  };
+}
+
 function readStoredRecords(): RecordsState {
   if (typeof window === "undefined") {
     return seedRecords();
@@ -146,7 +187,7 @@ function readStoredRecords(): RecordsState {
   return {
     ...seeded,
     ...parsedState,
-    cutLists: parsedState.cutLists ?? seeded.cutLists,
+    cutLists: (parsedState.cutLists ?? seeded.cutLists).map(normalizeStoredCutList),
   };
 }
 
@@ -183,6 +224,64 @@ function nextReceiptNumber(records: RecordsState) {
     "RCV",
     records.receiving.map((receipt) => receipt.receiptNo)
   );
+}
+
+function getCutListUse(
+  cabinetCategory: CutListRecord["cabinetCategory"],
+  cabinetSubtype: CutListRecord["cabinetSubtype"]
+): CutListRecord["cabinetUse"] {
+  if (cabinetCategory === "Upper") {
+    return cabinetSubtype === "Shelves" ? "upperShelvingCabinet" : "upperStandardCabinet";
+  }
+  if (cabinetCategory !== "Base") {
+    return "unsupportedCabinet";
+  }
+  if (cabinetSubtype === "Shelves") {
+    return "shelvingCabinet";
+  }
+  if (cabinetSubtype === "Drawer") {
+    return "drawerBank";
+  }
+  if (cabinetSubtype === "Sink") {
+    return "sinkCabinet";
+  }
+  return "standardBaseCabinet";
+}
+
+function normalizeInputUnit(value: string): CutListRecord["inputUnit"] {
+  return value.toLowerCase() === "mm" ? "mm" : "in";
+}
+
+function toInches(value: number, unit: CutListRecord["inputUnit"]) {
+  return unit === "mm" ? value / 25.4 : value;
+}
+
+function parseDrawerHeights(value: string, unit: CutListRecord["inputUnit"]) {
+  return value
+    .split(",")
+    .map((height) => height.trim())
+    .filter(Boolean)
+    .map((height) => toInches(Number(height), unit))
+    .filter((height) => Number.isFinite(height) && height > 0);
+}
+
+function resolveCutListMaterial(values: {
+  interiorMaterial: string;
+  customMaterialName: string;
+  customMaterialThickness: number;
+  materialThickness: number;
+}) {
+  if (values.interiorMaterial === "Custom") {
+    return {
+      interiorMaterial: values.customMaterialName || "Custom",
+      materialThickness: values.customMaterialThickness || values.materialThickness || 0.625,
+    };
+  }
+
+  return {
+    interiorMaterial: values.interiorMaterial,
+    materialThickness: values.materialThickness || 0.625,
+  };
 }
 
 export function AppStateProvider({ children }: PropsWithChildren) {
@@ -357,6 +456,16 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       }
 
       if (moduleKey === "cutLists") {
+        const cabinetCategory = (text("cabinetCategory") || "Base") as CutListRecord["cabinetCategory"];
+        const cabinetSubtype = (text("cabinetSubtype") || "Standard") as CutListRecord["cabinetSubtype"];
+        const inputUnit = normalizeInputUnit(text("inputUnit"));
+        const rawMaterial = {
+          interiorMaterial: text("interiorMaterial"),
+          customMaterialName: text("customMaterialName"),
+          customMaterialThickness: toInches(number("customMaterialThickness"), inputUnit),
+          materialThickness: toInches(number("materialThickness"), inputUnit),
+        };
+        const resolvedMaterial = resolveCutListMaterial(rawMaterial);
         const record: CutListRecord = {
           id,
           projectId: text("projectId"),
@@ -367,22 +476,33 @@ export function AppStateProvider({ children }: PropsWithChildren) {
               current.cutLists.map((cutList) => cutList.code)
             ),
           itemName: text("itemName"),
-          cabinetCategory: (text("cabinetCategory") || "Base") as CutListRecord["cabinetCategory"],
-          cabinetSubtype: (text("cabinetSubtype") || "Standard") as CutListRecord["cabinetSubtype"],
-          cabinetUse: (text("cabinetUse") || "standardBaseCabinet") as CutListRecord["cabinetUse"],
-          width: number("width"),
-          height: number("height"),
-          depth: number("depth"),
+          cabinetCategory,
+          cabinetSubtype,
+          cabinetUse: getCutListUse(cabinetCategory, cabinetSubtype),
+          inputUnit,
+          width: toInches(number("width"), inputUnit),
+          height: toInches(number("height"), inputUnit),
+          depth: toInches(number("depth"), inputUnit),
           quantity: number("quantity") || 1,
-          interiorMaterial: text("interiorMaterial"),
-          materialThickness: number("materialThickness") || 0.625,
-          doorThickness: number("doorThickness") || 0.75,
-          bumperAllowance: number("bumperAllowance") || 0.125,
+          interiorMaterial: resolvedMaterial.interiorMaterial,
+          customMaterialName: rawMaterial.customMaterialName,
+          customMaterialThickness: rawMaterial.customMaterialThickness,
+          materialThickness: resolvedMaterial.materialThickness,
+          doorThickness: toInches(number("doorThickness"), inputUnit) || 0.75,
+          bumperAllowance: toInches(number("bumperAllowance"), inputUnit) || 0.125,
           finishedSides: (text("finishedSides") || "Front") as CutListRecord["finishedSides"],
+          upperBottomCondition: (text("upperBottomCondition") ||
+            "Regular / Visible Bottom") as CutListRecord["upperBottomCondition"],
+          finishedMaterialThicknessM2: toInches(number("finishedMaterialThicknessM2"), inputUnit),
+          lightValanceHeight: toInches(number("lightValanceHeight"), inputUnit),
           backOption: (text("backOption") || "fullBack") as CutListRecord["backOption"],
           shelfQty: number("shelfQty"),
           shelfType: (text("shelfType") || "Fixed Shelf") as CutListRecord["shelfType"],
           shelfFinish: text("shelfFinish") || "White",
+          slideType: (text("slideType") || "") as CutListRecord["slideType"],
+          slideLength: toInches(number("slideLength"), inputUnit),
+          drawerQty: number("drawerQty"),
+          drawerHeights: parseDrawerHeights(text("drawerHeights"), inputUnit),
           status: (text("status") || "Draft") as CutListRecord["status"],
           notes: text("notes"),
           updatedAt: now,
@@ -573,40 +693,58 @@ export function AppStateProvider({ children }: PropsWithChildren) {
 
       if (moduleKey === "cutLists") {
         next.cutLists = sortByUpdatedAt([
-          ...rows.map((row, index) => ({
-            id: makeId("cut"),
-            projectId:
-              current.projects.find((project) => project.name === row.projectName)?.id ??
-              current.projects[0]?.id ??
-              "",
-            code: row.code || `B${current.cutLists.length + index + 1}`,
-            itemName: row.itemName || `Imported Cabinet ${index + 1}`,
-            cabinetCategory: "Base" as CutListRecord["cabinetCategory"],
-            cabinetSubtype: (row.cabinetSubtype || "Standard") as CutListRecord["cabinetSubtype"],
-            cabinetUse: (
-              row.cabinetSubtype === "Shelves"
-                ? "shelvingCabinet"
-                : row.cabinetSubtype === "Drawer"
-                  ? "drawerBank"
-                  : "standardBaseCabinet"
-            ) as CutListRecord["cabinetUse"],
-            width: Number(row.width || 30),
-            height: Number(row.height || 34.5),
-            depth: Number(row.depth || 24),
-            quantity: Number(row.quantity || 1),
-            interiorMaterial: row.interiorMaterial || "5/8 White Melamine",
-            materialThickness: Number(row.materialThickness || 0.625),
-            doorThickness: Number(row.doorThickness || 0.75),
-            bumperAllowance: Number(row.bumperAllowance || 0.125),
-            finishedSides: (row.finishedSides || "Front") as CutListRecord["finishedSides"],
-            backOption: (row.backOption || "fullBack") as CutListRecord["backOption"],
-            shelfQty: Number(row.shelfQty || 0),
-            shelfType: (row.shelfType || "Fixed Shelf") as CutListRecord["shelfType"],
-            shelfFinish: row.shelfFinish || "White",
-            status: (row.status || "Draft") as CutListRecord["status"],
-            notes: row.notes || "Imported from CSV import flow.",
-            updatedAt: now,
-          })),
+          ...rows.map((row, index) => {
+            const cabinetCategory = (row.cabinetCategory || "Base") as CutListRecord["cabinetCategory"];
+            const cabinetSubtype = (row.cabinetSubtype || "Standard") as CutListRecord["cabinetSubtype"];
+            const inputUnit = normalizeInputUnit(row.inputUnit || row.measurementUnit || "in");
+            const rawMaterial = {
+              interiorMaterial: row.interiorMaterial || "5/8 White Melamine",
+              customMaterialName: row.customMaterialName || "",
+              customMaterialThickness: toInches(Number(row.customMaterialThickness || 0), inputUnit),
+              materialThickness: toInches(Number(row.materialThickness || 0.625), inputUnit),
+            };
+            const resolvedMaterial = resolveCutListMaterial(rawMaterial);
+
+            return {
+              id: makeId("cut"),
+              projectId:
+                current.projects.find((project) => project.name === row.projectName)?.id ??
+                current.projects[0]?.id ??
+                "",
+              code: row.code || `B${current.cutLists.length + index + 1}`,
+              itemName: row.itemName || `Imported Cabinet ${index + 1}`,
+              cabinetCategory,
+              cabinetSubtype,
+              cabinetUse: getCutListUse(cabinetCategory, cabinetSubtype),
+              inputUnit,
+              width: toInches(Number(row.width || 30), inputUnit),
+              height: toInches(Number(row.height || 34.5), inputUnit),
+              depth: toInches(Number(row.depth || 24), inputUnit),
+              quantity: Number(row.quantity || 1),
+              interiorMaterial: resolvedMaterial.interiorMaterial,
+              customMaterialName: rawMaterial.customMaterialName,
+              customMaterialThickness: rawMaterial.customMaterialThickness,
+              materialThickness: resolvedMaterial.materialThickness,
+              doorThickness: toInches(Number(row.doorThickness || 0.75), inputUnit),
+              bumperAllowance: toInches(Number(row.bumperAllowance || 0.125), inputUnit),
+              finishedSides: (row.finishedSides || "Front") as CutListRecord["finishedSides"],
+              upperBottomCondition: (row.upperBottomCondition ||
+                "Regular / Visible Bottom") as CutListRecord["upperBottomCondition"],
+              finishedMaterialThicknessM2: toInches(Number(row.finishedMaterialThicknessM2 || 0), inputUnit),
+              lightValanceHeight: toInches(Number(row.lightValanceHeight || 0), inputUnit),
+              backOption: (row.backOption || "fullBack") as CutListRecord["backOption"],
+              shelfQty: Number(row.shelfQty || 0),
+              shelfType: (row.shelfType || "Fixed Shelf") as CutListRecord["shelfType"],
+              shelfFinish: row.shelfFinish || "White",
+              slideType: (row.slideType || row.drawerSlideType || "") as CutListRecord["slideType"],
+              slideLength: toInches(Number(row.slideLength || 0), inputUnit),
+              drawerQty: Number(row.drawerQty || 0),
+              drawerHeights: parseDrawerHeights(row.drawerHeights || "", inputUnit),
+              status: (row.status || "Draft") as CutListRecord["status"],
+              notes: row.notes || "Imported from CSV import flow.",
+              updatedAt: now,
+            };
+          }),
           ...current.cutLists,
         ]);
       }

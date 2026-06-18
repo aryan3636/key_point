@@ -8,6 +8,7 @@ import {
   generateAllCabinetRows,
   getGroupedProductionRows,
   groupRowsByCabinet,
+  groupProductionRowsByFamily,
 } from "@/lib/cutListEngine";
 
 function formatDimension(value: number | string) {
@@ -63,6 +64,40 @@ function CutListRowsTable({
   );
 }
 
+function escapeCsvCell(value: unknown) {
+  const cell = String(value ?? "");
+  const escaped = cell.replaceAll('"', '""');
+  return /[",\r\n]/.test(escaped) ? `"${escaped}"` : escaped;
+}
+
+function exportCutListCsv(rows: CutListPartRow[]) {
+  const columns = [
+    { header: "Part", value: (row: CutListPartRow) => row.partName },
+    { header: "Width", value: (row: CutListPartRow) => row.width },
+    { header: "Length", value: (row: CutListPartRow) => row.heightDepth },
+    { header: "Thickness", value: (row: CutListPartRow) => row.thickness },
+    { header: "Qty", value: (row: CutListPartRow) => row.quantity },
+    { header: "Material", value: (row: CutListPartRow) => row.material },
+    { header: "Edge Banding", value: (row: CutListPartRow) => row.edgeBanding },
+    { header: "Source Items", value: (row: CutListPartRow) => row.sourceItems ?? row.code },
+    { header: "Notes", value: (row: CutListPartRow) => row.notes },
+  ];
+  const csv = [
+    columns.map((column) => escapeCsvCell(column.header)).join(","),
+    ...rows.map((row) => columns.map((column) => escapeCsvCell(column.value(row))).join(",")),
+  ].join("\r\n");
+  const blob = new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = "cut-list.csv";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 export function CutListWorkspace() {
   const {
     activeList,
@@ -90,6 +125,10 @@ export function CutListWorkspace() {
   );
   const cabinetGroups = useMemo(() => groupRowsByCabinet(cabinetRows), [cabinetRows]);
   const productionRows = useMemo(() => getGroupedProductionRows(cabinetRows), [cabinetRows]);
+  const productionFamilies = useMemo(
+    () => groupProductionRowsByFamily(productionRows),
+    [productionRows]
+  );
   const activeProjects = new Set(cutLists.map((row) => row.projectId));
 
   return (
@@ -162,6 +201,15 @@ export function CutListWorkspace() {
             </p>
           </div>
           <div className="segmented-control">
+            {viewMode === "production" && (
+              <button
+                type="button"
+                onClick={() => exportCutListCsv(productionRows)}
+                disabled={productionRows.length === 0}
+              >
+                Export CSV
+              </button>
+            )}
             <button
               className={viewMode === "cabinet" ? "is-active" : ""}
               type="button"
@@ -192,7 +240,19 @@ export function CutListWorkspace() {
             )}
           </div>
         ) : (
-          <CutListRowsTable rows={productionRows} showSource />
+          <div className="cutlist-group-stack">
+            {productionFamilies.map((group) => (
+              <section className="detail-section" key={group.familyName}>
+                <h3>
+                  {group.familyName} <span className="section-count">Total qty: {group.totalQuantity}</span>
+                </h3>
+                <CutListRowsTable rows={group.rows} showSource />
+              </section>
+            ))}
+            {productionFamilies.length === 0 && (
+              <div className="empty-state">Create a cabinet row to generate a production batch.</div>
+            )}
+          </div>
         )}
       </div>
     </section>

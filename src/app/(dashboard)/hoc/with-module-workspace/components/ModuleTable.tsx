@@ -34,7 +34,7 @@ export function ModuleTable({
         : moduleKey === "projects"
           ? ["Project", "Code", "Status", "Location"]
           : moduleKey === "cutLists"
-            ? ["Cabinet", "Project", "Size", "Status"]
+            ? ["Cabinet", "Project", "Type", "Status"]
             : moduleKey === "workers"
               ? ["Worker", "Role", "Phone", "Assigned"]
               : moduleKey === "locations"
@@ -73,7 +73,7 @@ export function ModuleTable({
       return [
         `${String(record.code)} - ${String(record.itemName)}`,
         project?.name ?? "No project",
-        `${String(record.width)} x ${String(record.height)} x ${String(record.depth)}`,
+        `${String(record.cabinetCategory)} / ${String(record.cabinetSubtype)}`,
         String(record.status),
       ];
     }

@@ -22,12 +22,22 @@ const PRODUCTION_PART_ORDER = [
   "Back Rail",
   "Gable",
   "Bottom",
+  "Top & Bottom",
   "Stretcher",
   "Fixed Shelf",
   "Adjustable Shelf - Pins",
   "Adjustable Shelf - Pilasters",
+  "Drawer Side",
+  "Drawer Bottom",
+  "Drawer Front & Back",
   "Drawer Parts",
 ];
+
+const UPPER_BOTTOM_CONDITION_FINISHED: CutListRecord["upperBottomCondition"] = "Finished Bottom";
+const UPPER_BOTTOM_CONDITION_LIGHT_VALANCE: CutListRecord["upperBottomCondition"] = "Light Valance";
+const DRAWER_BOX_WIDTH_CLEARANCE = 1.0625;
+const DRAWER_SIDE_HEIGHT_DEDUCTION = 2;
+const DRAWER_FRONT_BACK_UNDERMOUNT_DEDUCTION = 0.5;
 
 function toNumber(value: unknown, fallback = 0) {
   const number = Number(value);
@@ -49,6 +59,34 @@ function calculateBoxDepth(cabinet: CutListRecord) {
       ? cabinet.doorThickness * 2
       : cabinet.doorThickness;
   return round(cabinet.depth - doorDeduction - cabinet.bumperAllowance);
+}
+
+function getUpperBottomDeduction(cabinet: CutListRecord) {
+  if (cabinet.upperBottomCondition === UPPER_BOTTOM_CONDITION_FINISHED) {
+    return toNumber(cabinet.finishedMaterialThicknessM2);
+  }
+  if (cabinet.upperBottomCondition === UPPER_BOTTOM_CONDITION_LIGHT_VALANCE) {
+    return toNumber(cabinet.lightValanceHeight);
+  }
+  return 0;
+}
+
+function getUpperBottomConditionNote(cabinet: CutListRecord) {
+  if (cabinet.upperBottomCondition === UPPER_BOTTOM_CONDITION_FINISHED) {
+    return "Finished bottom layer calculated later with exposed surfaces.";
+  }
+  if (cabinet.upperBottomCondition === UPPER_BOTTOM_CONDITION_LIGHT_VALANCE) {
+    return "Light valance piece calculated later with exposed surfaces.";
+  }
+  return "-";
+}
+
+function calculateUpperBoxDepth(cabinet: CutListRecord) {
+  return round(cabinet.depth - cabinet.doorThickness - cabinet.bumperAllowance);
+}
+
+function calculateUpperBoxHeight(cabinet: CutListRecord) {
+  return round(cabinet.height - getUpperBottomDeduction(cabinet));
 }
 
 function calculateShelfWidth(cabinet: CutListRecord) {
@@ -73,6 +111,14 @@ function calculateStretcherWidth(depth: number) {
 
 function oneEdgeBanding(longCandidate: number, shortCandidate: number) {
   return longCandidate >= shortCandidate ? "1L" : "1S";
+}
+
+function getDrawerEdgeBanding(partName: string) {
+  const normalized = partName.trim().toLowerCase();
+  if (normalized.includes("bottom")) {
+    return "None";
+  }
+  return "1L";
 }
 
 function makeRow(
@@ -109,10 +155,14 @@ function normalizeProductionPartName(partName: string) {
   if (normalized === "BACK") return "Back";
   if (normalized === "GABLE" || normalized === "GABLES") return "Gable";
   if (normalized === "BOTTOM") return "Bottom";
+  if (normalized === "TOP & BOTTOM") return "Top & Bottom";
   if (normalized.includes("STRETCHER")) return "Stretcher";
   if (normalized === "FIXED SHELF") return "Fixed Shelf";
   if (normalized === "ADJUSTABLE SHELF - PINS") return "Adjustable Shelf - Pins";
   if (normalized === "ADJUSTABLE SHELF - PILASTERS") return "Adjustable Shelf - Pilasters";
+  if (normalized.includes("DRAWER") && normalized.includes("FRONT & BACK")) return "Drawer Front & Back";
+  if (normalized.includes("DRAWER") && normalized.includes("BOTTOM")) return "Drawer Bottom";
+  if (normalized.includes("DRAWER") && normalized.includes("SIDE")) return "Drawer Side";
   if (normalized.includes("DRAWER")) return "Drawer Parts";
   return partName || "Other";
 }
@@ -131,6 +181,81 @@ export function generateCabinetCutListRows(
   const insideWidth = round(cabinet.width - cabinet.materialThickness * 2);
   const boxDepth = calculateBoxDepth(cabinet);
   const rows: CutListPartRow[] = [];
+
+  if (cabinet.cabinetCategory === "Upper") {
+    if (!["Standard", "Shelves"].includes(cabinet.cabinetSubtype)) {
+      return [];
+    }
+    if (
+      cabinet.upperBottomCondition === UPPER_BOTTOM_CONDITION_FINISHED &&
+      !toNumber(cabinet.finishedMaterialThicknessM2)
+    ) {
+      return [];
+    }
+    if (
+      cabinet.upperBottomCondition === UPPER_BOTTOM_CONDITION_LIGHT_VALANCE &&
+      !toNumber(cabinet.lightValanceHeight)
+    ) {
+      return [];
+    }
+
+    const upperBoxDepth = calculateUpperBoxDepth(cabinet);
+    const upperBoxHeight = calculateUpperBoxHeight(cabinet);
+
+    rows.push(
+      makeRow(cabinet, projectName, {
+        partName: "BACK",
+        width: insideWidth,
+        heightDepth: upperBoxHeight - cabinet.materialThickness * 2,
+        thickness: cabinet.materialThickness,
+        edgeBanding: "None",
+        material: cabinet.interiorMaterial,
+        quantity,
+        finish: "-",
+        notes: "-",
+      }),
+      makeRow(cabinet, projectName, {
+        partName: "GABLES",
+        width: upperBoxDepth,
+        heightDepth: upperBoxHeight,
+        thickness: cabinet.materialThickness,
+        edgeBanding: oneEdgeBanding(upperBoxHeight, upperBoxDepth),
+        material: cabinet.interiorMaterial,
+        quantity: 2 * quantity,
+        finish: normalizeFinish(cabinet.shelfFinish),
+        notes: "MATCHING",
+      }),
+      makeRow(cabinet, projectName, {
+        partName: "TOP & BOTTOM",
+        width: insideWidth,
+        heightDepth: upperBoxDepth,
+        thickness: cabinet.materialThickness,
+        edgeBanding: "1L",
+        material: cabinet.interiorMaterial,
+        quantity: 2 * quantity,
+        finish: normalizeFinish(cabinet.shelfFinish),
+        notes: getUpperBottomConditionNote(cabinet),
+      })
+    );
+
+    if (cabinet.cabinetSubtype === "Shelves" && cabinet.shelfQty > 0) {
+      rows.push(
+        makeRow(cabinet, projectName, {
+          partName: cabinet.shelfType,
+          width: calculateShelfWidth(cabinet),
+          heightDepth: calculateShelfDepth(cabinet, upperBoxDepth),
+          thickness: cabinet.materialThickness,
+          edgeBanding: "2S2L",
+          material: cabinet.interiorMaterial,
+          quantity: cabinet.shelfQty * quantity,
+          finish: normalizeFinish(cabinet.shelfFinish),
+          notes: "-",
+        })
+      );
+    }
+
+    return rows;
+  }
 
   if (cabinet.backOption === "noBack") {
     rows.push(
@@ -214,20 +339,61 @@ export function generateCabinetCutListRows(
     );
   }
 
-  if (cabinet.cabinetUse === "drawerBank") {
-    rows.push(
-      makeRow(cabinet, projectName, {
-        partName: "Drawer Parts",
-        width: "-",
-        heightDepth: "-",
-        thickness: "-",
-        edgeBanding: "-",
-        material: "-",
-        quantity: "-",
-        finish: "-",
-        notes: "Drawer cut list pending formula confirmation",
-      })
-    );
+  if (cabinet.cabinetUse === "drawerBank" && cabinet.drawerQty > 0 && cabinet.slideLength > 0) {
+    const drawerPartWidth = insideWidth - DRAWER_BOX_WIDTH_CLEARANCE;
+    const frontBackSlideDeduction =
+      cabinet.slideType === "undermount" ? DRAWER_FRONT_BACK_UNDERMOUNT_DEDUCTION : 0;
+    const drawerHeights = Array.isArray(cabinet.drawerHeights)
+      ? cabinet.drawerHeights.slice(0, cabinet.drawerQty)
+      : [];
+
+    drawerHeights.forEach((drawerHeight, index) => {
+      if (!drawerHeight || drawerHeight <= 0) {
+        return;
+      }
+
+      const drawerNumber = index + 1;
+      const note = `Drawer ${drawerNumber}`;
+      rows.push(
+        makeRow(cabinet, projectName, {
+          partName: `Drawer ${drawerNumber} Side`,
+          width: cabinet.slideLength,
+          heightDepth: drawerHeight - DRAWER_SIDE_HEIGHT_DEDUCTION,
+          thickness: cabinet.materialThickness,
+          edgeBanding: getDrawerEdgeBanding("Drawer Side"),
+          material: cabinet.interiorMaterial,
+          quantity: 2 * quantity,
+          finish: normalizeFinish(cabinet.shelfFinish),
+          notes: note,
+        }),
+        makeRow(cabinet, projectName, {
+          partName: `Drawer ${drawerNumber} Bottom`,
+          width: cabinet.slideLength,
+          heightDepth: drawerPartWidth,
+          thickness: cabinet.materialThickness,
+          edgeBanding: getDrawerEdgeBanding("Drawer Bottom"),
+          material: cabinet.interiorMaterial,
+          quantity,
+          finish: normalizeFinish(cabinet.shelfFinish),
+          notes: note,
+        }),
+        makeRow(cabinet, projectName, {
+          partName: `Drawer ${drawerNumber} Front & Back`,
+          width: drawerPartWidth,
+          heightDepth:
+            drawerHeight -
+            DRAWER_SIDE_HEIGHT_DEDUCTION -
+            cabinet.materialThickness -
+            frontBackSlideDeduction,
+          thickness: cabinet.materialThickness,
+          edgeBanding: getDrawerEdgeBanding("Drawer Front & Back"),
+          material: cabinet.interiorMaterial,
+          quantity: 2 * quantity,
+          finish: normalizeFinish(cabinet.shelfFinish),
+          notes: note,
+        })
+      );
+    });
   }
 
   return rows;
@@ -302,6 +468,60 @@ export function getGroupedProductionRows(rows: CutListPartRow[]) {
         String(a.partName).localeCompare(String(b.partName)) ||
         toNumber(a.width) - toNumber(b.width) ||
         toNumber(a.heightDepth) - toNumber(b.heightDepth)
+      );
+    });
+}
+
+function getProductionFamilyName(partName: string) {
+  if (partName === "Back" || partName === "Back Rail") return "Back / Back Rail";
+  if (partName === "Gable") return "Gables";
+  if (partName === "Top & Bottom" || partName === "Bottom") return "Bottom";
+  if (partName === "Stretcher") return "Stretchers";
+  if (
+    ["Fixed Shelf", "Adjustable Shelf - Pins", "Adjustable Shelf - Pilasters"].includes(partName)
+  ) {
+    return "Shelves";
+  }
+  if (["Drawer Side", "Drawer Bottom", "Drawer Front & Back"].includes(partName)) {
+    return "Drawer Parts";
+  }
+  return "Other";
+}
+
+const PRODUCTION_FAMILY_ORDER = [
+  "Back / Back Rail",
+  "Gables",
+  "Bottom",
+  "Stretchers",
+  "Shelves",
+  "Drawer Parts",
+  "Other",
+];
+
+export function groupProductionRowsByFamily(rows: CutListPartRow[]) {
+  const groups = new Map<string, CutListPartRow[]>();
+
+  rows.forEach((row) => {
+    const familyName = getProductionFamilyName(row.partName);
+    groups.set(familyName, [...(groups.get(familyName) ?? []), row]);
+  });
+
+  return Array.from(groups.entries())
+    .map(([familyName, groupRows]) => ({
+      familyName,
+      rows: groupRows,
+      totalQuantity: groupRows.reduce((total, row) => {
+        const quantity = Number(row.quantity);
+        return Number.isFinite(quantity) ? total + quantity : total;
+      }, 0),
+    }))
+    .sort((a, b) => {
+      const orderA = PRODUCTION_FAMILY_ORDER.indexOf(a.familyName);
+      const orderB = PRODUCTION_FAMILY_ORDER.indexOf(b.familyName);
+      return (
+        (orderA === -1 ? PRODUCTION_FAMILY_ORDER.length : orderA) -
+          (orderB === -1 ? PRODUCTION_FAMILY_ORDER.length : orderB) ||
+        a.familyName.localeCompare(b.familyName)
       );
     });
 }

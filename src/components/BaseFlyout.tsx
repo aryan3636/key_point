@@ -7,6 +7,7 @@ type BaseFlyoutProps = PropsWithChildren<{
   title?: string;
   onClose: () => void;
   width?: number | string;
+  zIndex?: number;
   headerAction?: React.ReactNode;
 }>;
 
@@ -15,11 +16,16 @@ export default function BaseFlyout({
   title,
   onClose,
   width = 650,
+  zIndex,
   headerAction,
   children,
 }: BaseFlyoutProps) {
   return (
-    <div className={`flyout-root ${open ? "is-open" : ""}`} aria-hidden={!open}>
+    <div
+      className={`flyout-root ${open ? "is-open" : ""}`}
+      style={zIndex ? { zIndex } : undefined}
+      aria-hidden={!open}
+    >
       <button className="flyout-backdrop" type="button" onClick={onClose} aria-label="Close flyout" />
       <aside className="flyout-panel" style={{ width }}>
         <div className="flyout-header">

@@ -480,6 +480,12 @@ button {
   color: var(--accent-strong);
 }
 
+.section-count {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
 .record-row:hover,
 .record-row.is-selected {
   background: var(--accent-soft);
