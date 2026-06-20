@@ -13,6 +13,7 @@ import {
   WorkerRecord,
 } from "@/lib/inventoryMock";
 import { generateCabinetCutListRows } from "@/lib/cutListEngine";
+import { sortCutListsByCode } from "@/lib/cutListSort";
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("en-IN", {
@@ -78,11 +79,13 @@ export function ModuleDetail({
   record,
   records,
   onEdit,
+  onOpenProjectCutLists,
 }: {
   moduleKey: Exclude<ModuleKey, "dashboard">;
   record: (Record<string, unknown> & { id: string }) | null;
   records: RecordsState;
-  onEdit: (id: string) => void;
+  onEdit: (id: string, moduleKey?: Exclude<ModuleKey, "dashboard">) => void;
+  onOpenProjectCutLists?: (projectId: string) => void;
 }) {
   if (!record) {
     return (
@@ -175,19 +178,68 @@ export function ModuleDetail({
     const project = record as unknown as ProjectRecord;
     const taggedPOs = records.purchaseOrders.filter((po) => po.projectId === project.id);
     const issuedMaterials = records.movements.filter((movement) => movement.target === project.name);
+    const projectCutLists = sortCutListsByCode(
+      records.cutLists.filter((cutList) => cutList.projectId === project.id)
+    );
     return (
-      <DetailScaffold
-        title={project.name}
-        subtitle={project.code}
-        onEdit={() => onEdit(project.id)}
-        sections={[
-          ["Status", project.status],
-          ["Location", project.location],
-          ["Budget", formatCurrency(project.budget)],
-          ["Related PO Lines", String(taggedPOs.reduce((count, po) => count + po.lines.length, 0))],
-          ["Issued materials", String(issuedMaterials.length)],
-        ]}
-      />
+      <div className="detail-stack">
+        <div className="detail-header">
+          <div>
+            <h2>{project.name}</h2>
+            <p>{project.code}</p>
+          </div>
+          <button className="primary-button" onClick={() => onEdit(project.id)} type="button">
+            Edit
+          </button>
+        </div>
+        <section className="detail-section">
+          {[
+            ["Status", project.status],
+            ["Location", project.location],
+            ["Budget", formatCurrency(project.budget)],
+            ["Related PO Lines", String(taggedPOs.reduce((count, po) => count + po.lines.length, 0))],
+            ["Issued materials", String(issuedMaterials.length)],
+          ].map(([label, value]) => (
+            <div className="detail-line" key={label}>
+              <strong>{label}</strong>
+              <span>{value}</span>
+            </div>
+          ))}
+        </section>
+        <section className="detail-section">
+          <div className="section-header">
+            <div>
+              <h3>Cutlists</h3>
+              <p>{projectCutLists.length} linked cabinet rows</p>
+            </div>
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() => onOpenProjectCutLists?.(project.id)}
+            >
+              Edit
+            </button>
+          </div>
+          <div className="timeline">
+            {projectCutLists.map((cutList) => {
+              const generatedRows = generateCabinetCutListRows(cutList, records.projects);
+
+              return (
+                <div className="timeline-row po-line-summary" key={cutList.id}>
+                  <strong>{cutList.code}</strong>
+                  <span>{cutList.itemName}</span>
+                  <span>{cutList.cabinetCategory} / {cutList.cabinetSubtype}</span>
+                  <span>{cutList.status}</span>
+                  <span>{generatedRows.length} parts</span>
+                </div>
+              );
+            })}
+            {projectCutLists.length === 0 && (
+              <div className="empty-state">No cutlists are linked to this project yet.</div>
+            )}
+          </div>
+        </section>
+      </div>
     );
   }
 

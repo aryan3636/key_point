@@ -108,8 +108,11 @@ export function CutListWorkspace() {
     setFormState,
     setImportState,
     setDetailState,
+    query,
+    setQuery,
   } = useAppState();
   const [viewMode, setViewMode] = useState<"cabinet" | "production">("cabinet");
+  const [showCutListDetails, setShowCutListDetails] = useState(false);
 
   const activeIds = useMemo(
     () => new Set(activeList.map((record) => record.id)),
@@ -157,20 +160,29 @@ export function CutListWorkspace() {
           </div>
         </div>
 
-        <div className="detail-grid">
-          <article className="info-card">
+        <div className="module-toolbar">
+          <input
+            className="search-input module-search"
+            placeholder="Search Cut Lists"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </div>
+
+        <div className="cutlist-metric-strip">
+          <article className="cutlist-metric-card">
             <small>Cabinet rows</small>
             <strong>{cutLists.length}</strong>
           </article>
-          <article className="info-card">
+          <article className="cutlist-metric-card">
             <small>Generated parts</small>
             <strong>{cabinetRows.length}</strong>
           </article>
-          <article className="info-card">
+          <article className="cutlist-metric-card">
             <small>Production groups</small>
             <strong>{productionRows.length}</strong>
           </article>
-          <article className="info-card">
+          <article className="cutlist-metric-card">
             <small>Linked projects</small>
             <strong>{activeProjects.size}</strong>
           </article>
@@ -188,72 +200,88 @@ export function CutListWorkspace() {
           onEdit={(id) => setFormState({ moduleKey: "cutLists", mode: "edit", recordId: id })}
           onDelete={(id) => removeModuleRecord("cutLists", id)}
         />
-      </div>
 
-      <div className="panel">
-        <div className="panel-header">
+        <div className="cutlist-reveal-bar">
           <div>
-            <h2>{viewMode === "cabinet" ? "Cabinet Cut List" : "Production Batch"}</h2>
-            <p>
-              {viewMode === "cabinet"
-                ? "Rows grouped by cabinet code for review before release."
-                : "Matching parts grouped across cabinets for shop production."}
-            </p>
+            <h3>Cabinet Cut List</h3>
+            <p>Rows grouped by cabinet code for review before release.</p>
           </div>
-          <div className="segmented-control">
-            {viewMode === "production" && (
-              <button
-                type="button"
-                onClick={() => exportCutListCsv(productionRows)}
-                disabled={productionRows.length === 0}
-              >
-                Export CSV
-              </button>
-            )}
-            <button
-              className={viewMode === "cabinet" ? "is-active" : ""}
-              type="button"
-              onClick={() => setViewMode("cabinet")}
-            >
-              Cabinet
-            </button>
-            <button
-              className={viewMode === "production" ? "is-active" : ""}
-              type="button"
-              onClick={() => setViewMode("production")}
-            >
-              Production
-            </button>
-          </div>
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => setShowCutListDetails((current) => !current)}
+          >
+            {showCutListDetails ? "Hide Cabinet Cut List" : "View Cabinet Cut List"}
+          </button>
         </div>
 
-        {viewMode === "cabinet" ? (
-          <div className="cutlist-group-stack">
-            {cabinetGroups.map((group) => (
-              <section className="detail-section" key={group.label}>
-                <h3>{group.label}</h3>
-                <CutListRowsTable rows={group.rows} />
-              </section>
-            ))}
-            {cabinetGroups.length === 0 && (
-              <div className="empty-state">Create a cabinet row to generate a cut list.</div>
+        <div className={`cutlist-detail-reveal ${showCutListDetails ? "is-open" : ""}`}>
+          <div className="cutlist-detail-panel">
+            <div className="panel-header">
+              <div>
+                <h2>{viewMode === "cabinet" ? "Cabinet Cut List" : "Production Batch"}</h2>
+                <p>
+                  {viewMode === "cabinet"
+                    ? "Rows grouped by cabinet code for review before release."
+                    : "Matching parts grouped across cabinets for shop production."}
+                </p>
+              </div>
+              <div className="segmented-control">
+                {viewMode === "production" && (
+                  <button
+                    type="button"
+                    onClick={() => exportCutListCsv(productionRows)}
+                    disabled={productionRows.length === 0}
+                  >
+                    Export CSV
+                  </button>
+                )}
+                <button
+                  className={viewMode === "cabinet" ? "is-active" : ""}
+                  type="button"
+                  onClick={() => setViewMode("cabinet")}
+                >
+                  Cabinet
+                </button>
+                <button
+                  className={viewMode === "production" ? "is-active" : ""}
+                  type="button"
+                  onClick={() => setViewMode("production")}
+                >
+                  Production
+                </button>
+              </div>
+            </div>
+
+            {viewMode === "cabinet" ? (
+              <div className="cutlist-group-stack">
+                {cabinetGroups.map((group) => (
+                  <section className="detail-section" key={group.label}>
+                    <h3>{group.label}</h3>
+                    <CutListRowsTable rows={group.rows} />
+                  </section>
+                ))}
+                {cabinetGroups.length === 0 && (
+                  <div className="empty-state">Create a cabinet row to generate a cut list.</div>
+                )}
+              </div>
+            ) : (
+              <div className="cutlist-group-stack">
+                {productionFamilies.map((group) => (
+                  <section className="detail-section" key={group.familyName}>
+                    <h3>
+                      {group.familyName} <span className="section-count">Total qty: {group.totalQuantity}</span>
+                    </h3>
+                    <CutListRowsTable rows={group.rows} showSource />
+                  </section>
+                ))}
+                {productionFamilies.length === 0 && (
+                  <div className="empty-state">Create a cabinet row to generate a production batch.</div>
+                )}
+              </div>
             )}
           </div>
-        ) : (
-          <div className="cutlist-group-stack">
-            {productionFamilies.map((group) => (
-              <section className="detail-section" key={group.familyName}>
-                <h3>
-                  {group.familyName} <span className="section-count">Total qty: {group.totalQuantity}</span>
-                </h3>
-                <CutListRowsTable rows={group.rows} showSource />
-              </section>
-            ))}
-            {productionFamilies.length === 0 && (
-              <div className="empty-state">Create a cabinet row to generate a production batch.</div>
-            )}
-          </div>
-        )}
+        </div>
       </div>
     </section>
   );

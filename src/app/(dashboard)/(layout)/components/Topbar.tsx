@@ -6,63 +6,55 @@ import { useAppState } from "@/app/context/app-state-context";
 export function Topbar() {
   const {
     activeModule,
-    query,
-    setQuery,
-    itemDateFilter,
-    setItemDateFilter,
     setTheme,
     theme,
     setUser,
+    user,
   } = useAppState();
+  const activeLabel = navigationItems.find((item) => item.key === activeModule)?.label;
 
   return (
     <header className="topbar">
-      <div>
-        <div className="eyebrow">ag-drive inspired structure</div>
-        <h1>{navigationItems.find((item) => item.key === activeModule)?.label}</h1>
-      </div>
+      <h1>{activeLabel}</h1>
       <div className="topbar-actions">
-        {activeModule !== "dashboard" && (
-          <input
-            className="search-input"
-            placeholder={`Search ${navigationItems.find((item) => item.key === activeModule)?.label}`}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        )}
-        {activeModule === "items" && (
-          <>
-            <input
-              className="search-input compact"
-              type="date"
-              value={itemDateFilter.from}
-              onChange={(event) =>
-                setItemDateFilter((current) => ({ ...current, from: event.target.value }))
-              }
-            />
-            <input
-              className="search-input compact"
-              type="date"
-              value={itemDateFilter.to}
-              onChange={(event) =>
-                setItemDateFilter((current) => ({ ...current, to: event.target.value }))
-              }
-            />
-          </>
-        )}
         <button
-          className="secondary-button"
+          className="topbar-icon-button"
           type="button"
+          aria-label={theme === "light" ? "Switch to dark theme" : "Switch to light theme"}
           onClick={() =>
             setTheme((current) => (current === "light" ? "dark" : "light"))
           }
         >
-          {theme === "light" ? "Dark theme" : "Light theme"}
+          {theme === "light" ? <MoonIcon /> : <SunIcon />}
         </button>
-        <button className="secondary-button" type="button" onClick={() => setUser(null)}>
+        <div className="topbar-user">
+          <div className="user-avatar small">{user?.name.slice(0, 2).toUpperCase()}</div>
+          <div>
+            <strong>{user?.name}</strong>
+            <span>{user?.email}</span>
+          </div>
+        </div>
+        <button className="text-button topbar-signout" type="button" onClick={() => setUser(null)}>
           Sign out
         </button>
       </div>
     </header>
+  );
+}
+
+function SunIcon() {
+  return (
+    <svg aria-hidden="true" className="topbar-svg-icon" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2.5M12 19.5V22M4.93 4.93l1.77 1.77M17.3 17.3l1.77 1.77M2 12h2.5M19.5 12H22M4.93 19.07l1.77-1.77M17.3 6.7l1.77-1.77" />
+    </svg>
+  );
+}
+
+function MoonIcon() {
+  return (
+    <svg aria-hidden="true" className="topbar-svg-icon" viewBox="0 0 24 24">
+      <path d="M20.4 15.2A8.2 8.2 0 0 1 8.8 3.6 8.7 8.7 0 1 0 20.4 15.2Z" />
+    </svg>
   );
 }

@@ -17,6 +17,11 @@ export function WithModuleWorkspace() {
     setItemActionState,
     setDetailState,
     setReceiveState,
+    setProjectCutListsState,
+    query,
+    setQuery,
+    itemDateFilter,
+    setItemDateFilter,
   } = useAppState();
 
   if (activeModule === "dashboard") {
@@ -54,6 +59,34 @@ export function WithModuleWorkspace() {
             )}
           </div>
         </div>
+        <div className="module-toolbar">
+          <input
+            className="search-input module-search"
+            placeholder={`Search ${getModuleLabel(activeModule)}`}
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+          {activeModule === "items" && (
+            <>
+              <input
+                className="search-input compact"
+                type="date"
+                value={itemDateFilter.from}
+                onChange={(event) =>
+                  setItemDateFilter((current) => ({ ...current, from: event.target.value }))
+                }
+              />
+              <input
+                className="search-input compact"
+                type="date"
+                value={itemDateFilter.to}
+                onChange={(event) =>
+                  setItemDateFilter((current) => ({ ...current, to: event.target.value }))
+                }
+              />
+            </>
+          )}
+        </div>
         <ModuleTable
           moduleKey={activeModule}
           records={activeList}
@@ -70,6 +103,7 @@ export function WithModuleWorkspace() {
           onDelete={(id) => removeModuleRecord(activeModule, id)}
           onReceive={(id) => setReceiveState({ poId: id })}
           onAllocate={(id) => setItemActionState({ itemId: id, action: "Issue" })}
+          onCreateCutList={(id) => setProjectCutListsState({ projectId: id })}
         />
       </div>
     </section>

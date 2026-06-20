@@ -20,21 +20,70 @@ import {
 } from "@/app/(dashboard)/shared/components/form/FormFields";
 
 export function ModuleFormModal({ state }: { state: FormState }) {
-  const { records, saveModuleRecord, setFormState } = useAppState();
+  const { records, saveModuleRecord, setFormState, setProjectCutListsState } = useAppState();
 
   const sourceList = records[state.moduleKey];
   const record = sourceList.find((entry) => entry.id === state.recordId) as
     | Record<string, unknown>
     | undefined;
+  const formDefaults = {
+    ...state.initialValues,
+    ...record,
+  } as Record<string, unknown>;
+  const projectCutListsAction =
+    state.moduleKey === "projects" && state.mode === "edit" && state.recordId ? (
+      <>
+        <button
+          className="secondary-button"
+          type="button"
+          onClick={() => {
+            setFormState({
+              moduleKey: "cutLists",
+              mode: "create",
+              initialValues: {
+                projectId: state.recordId!,
+                itemName: `${String(formDefaults.name ?? "Project")} cabinet`,
+                notes: `Created from project ${String(formDefaults.name ?? "Project")}.`,
+              },
+            });
+          }}
+        >
+          Create Cutlist
+        </button>
+        <button
+          className="secondary-button"
+          type="button"
+          onClick={() => setProjectCutListsState({ projectId: state.recordId! })}
+        >
+          Open Cutlists
+        </button>
+      </>
+    ) : null;
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
-    saveModuleRecord(
+    const nativeEvent = event.nativeEvent as SubmitEvent;
+    const submitter = nativeEvent.submitter as HTMLButtonElement | null;
+    const intent = submitter?.value;
+    const savedId = saveModuleRecord(
       state.moduleKey,
       Object.fromEntries(formData.entries()),
       state.recordId
     );
+
+    if (state.moduleKey === "projects" && intent === "createCutList") {
+      const projectName = String(formData.get("name") ?? "Project").trim() || "Project";
+      setFormState({
+        moduleKey: "cutLists",
+        mode: "create",
+        initialValues: {
+          projectId: savedId,
+          itemName: `${projectName} cabinet`,
+          notes: `Created from project ${projectName}.`,
+        },
+      });
+    }
   };
 
   return (
@@ -42,22 +91,23 @@ export function ModuleFormModal({ state }: { state: FormState }) {
       open={!!state}
       onClose={() => setFormState(null)}
       title={`${state.mode === "create" ? "Create" : "Edit"} ${getModuleLabel(state.moduleKey)}`}
-      width={760}
+      width={680}
       zIndex={1210}
+      headerAction={projectCutListsAction}
     >
       <form className="flyout-form" onSubmit={submit}>
         <div className="form-grid">
-          {state.moduleKey === "items" && <ItemFields record={record} records={records} />}
-          {state.moduleKey === "vendors" && <VendorFields record={record} records={records} />}
-          {state.moduleKey === "projects" && <ProjectFields record={record} />}
-          {state.moduleKey === "cutLists" && <CutListFields record={record} records={records} />}
-          {state.moduleKey === "workers" && <WorkerFields record={record} records={records} />}
-          {state.moduleKey === "locations" && <LocationFields record={record} />}
+          {state.moduleKey === "items" && <ItemFields record={formDefaults} records={records} />}
+          {state.moduleKey === "vendors" && <VendorFields record={formDefaults} records={records} />}
+          {state.moduleKey === "projects" && <ProjectFields record={formDefaults} />}
+          {state.moduleKey === "cutLists" && <CutListFields record={formDefaults} records={records} />}
+          {state.moduleKey === "workers" && <WorkerFields record={formDefaults} records={records} />}
+          {state.moduleKey === "locations" && <LocationFields record={formDefaults} />}
           {state.moduleKey === "purchaseOrders" && (
-            <PurchaseOrderFields record={record} records={records} />
+            <PurchaseOrderFields record={formDefaults} records={records} />
           )}
           {state.moduleKey === "receiving" && (
-            <ReceivingFields record={record} records={records} />
+            <ReceivingFields record={formDefaults} records={records} />
           )}
         </div>
 
@@ -65,6 +115,16 @@ export function ModuleFormModal({ state }: { state: FormState }) {
           <button className="secondary-button" type="button" onClick={() => setFormState(null)}>
             Cancel
           </button>
+          {state.moduleKey === "projects" && (
+            <button
+              className="primary-button"
+              name="submitIntent"
+              value="createCutList"
+              type="submit"
+            >
+              Create Cutlist
+            </button>
+          )}
           <button className="primary-button" type="submit">
             Save
           </button>

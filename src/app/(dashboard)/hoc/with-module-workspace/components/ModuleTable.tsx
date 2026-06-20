@@ -13,6 +13,7 @@ export function ModuleTable({
   onDelete,
   onReceive,
   onAllocate,
+  onCreateCutList,
 }: {
   moduleKey: Exclude<ModuleKey, "dashboard">;
   records: Array<Record<string, unknown> & { id: string }>;
@@ -23,6 +24,7 @@ export function ModuleTable({
   onDelete: (id: string) => void;
   onReceive?: (id: string) => void;
   onAllocate?: (id: string) => void;
+  onCreateCutList?: (id: string) => void;
 }) {
   const [openMenuId, setOpenMenuId] = useState("");
 
@@ -141,7 +143,7 @@ export function ModuleTable({
           {rowForRecord(record).map((value, index) => (
             <span key={`${record.id}-${index}`}>{value}</span>
           ))}
-          <span className="row-actions">
+          <span className="row-actions project-row-actions">
             {moduleKey === "receiving" ? (
               <button
                 className="table-action"
@@ -163,7 +165,7 @@ export function ModuleTable({
                     setOpenMenuId((current) => (current === record.id ? "" : record.id));
                   }}
                 >
-                  ...
+                  ⋮
                 </button>
                 {openMenuId === record.id && (
                   <span className="action-menu">
@@ -203,29 +205,95 @@ export function ModuleTable({
                   </span>
                 )}
               </span>
+            ) : moduleKey === "projects" ? (
+              <span className="menu-shell">
+                <button
+                  className="table-action menu-trigger"
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setOpenMenuId((current) => (current === record.id ? "" : record.id));
+                  }}
+                >
+                  ⋮
+                </button>
+                {openMenuId === record.id && (
+                  <span className="action-menu">
+                    <button
+                      className="table-action"
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setOpenMenuId("");
+                        onEdit(record.id);
+                      }}
+                    >
+                      Edit Project
+                    </button>
+                    <button
+                      className="table-action"
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setOpenMenuId("");
+                        onCreateCutList?.(record.id);
+                      }}
+                    >
+                      Edit Cutlist
+                    </button>
+                    <button
+                      className="table-action danger"
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setOpenMenuId("");
+                        onDelete(record.id);
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </span>
+                )}
+              </span>
             ) : (
-              <>
+              <span className="menu-shell">
                 <button
-                  className="table-action"
+                  className="table-action menu-trigger"
                   type="button"
                   onClick={(event) => {
                     event.stopPropagation();
-                    onEdit(record.id);
+                    setOpenMenuId((current) => (current === record.id ? "" : record.id));
                   }}
                 >
-                  Edit
+                  ⋮
                 </button>
-                <button
-                  className="table-action danger"
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onDelete(record.id);
-                  }}
-                >
-                  Delete
-                </button>
-              </>
+                {openMenuId === record.id && (
+                  <span className="action-menu">
+                    <button
+                      className="table-action"
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setOpenMenuId("");
+                        onEdit(record.id);
+                      }}
+                    >
+                      {moduleKey === "cutLists" ? "Edit Cutlist" : "Edit"}
+                    </button>
+                    <button
+                      className="table-action danger"
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setOpenMenuId("");
+                        onDelete(record.id);
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </span>
+                )}
+              </span>
             )}
           </span>
         </div>

@@ -36,6 +36,7 @@ export type FormState = {
   moduleKey: Exclude<ModuleKey, "dashboard">;
   mode: "create" | "edit";
   recordId?: string;
+  initialValues?: Record<string, string | number>;
 };
 
 export type ImportState = {
@@ -56,6 +57,10 @@ export type ReceiveState = {
   poId: string;
 };
 
+export type ProjectCutListsState = {
+  projectId: string;
+};
+
 export type ItemDateFilter = {
   from: string;
   to: string;
@@ -71,6 +76,7 @@ type AppStateContextValue = {
   itemActionState: ItemActionState | null;
   detailState: DetailState | null;
   receiveState: ReceiveState | null;
+  projectCutListsState: ProjectCutListsState | null;
   query: string;
   itemDateFilter: ItemDateFilter;
   selectedIds: Record<string, string>;
@@ -88,6 +94,7 @@ type AppStateContextValue = {
   setItemActionState: (state: ItemActionState | null) => void;
   setDetailState: (state: DetailState | null) => void;
   setReceiveState: (state: ReceiveState | null) => void;
+  setProjectCutListsState: (state: ProjectCutListsState | null) => void;
   setSelectedId: (
     moduleKey: Exclude<ModuleKey, "dashboard">,
     id: string
@@ -96,7 +103,7 @@ type AppStateContextValue = {
     moduleKey: Exclude<ModuleKey, "dashboard">,
     values: Record<string, FormDataEntryValue>,
     existingId?: string
-  ) => void;
+  ) => string;
   removeModuleRecord: (
     moduleKey: Exclude<ModuleKey, "dashboard">,
     id: string
@@ -294,6 +301,8 @@ export function AppStateProvider({ children }: PropsWithChildren) {
   const [itemActionState, setItemActionState] = useState<ItemActionState | null>(null);
   const [detailState, setDetailState] = useState<DetailState | null>(null);
   const [receiveState, setReceiveState] = useState<ReceiveState | null>(null);
+  const [projectCutListsState, setProjectCutListsState] =
+    useState<ProjectCutListsState | null>(null);
   const [query, setQuery] = useState("");
   const [itemDateFilter, setItemDateFilter] = useState<ItemDateFilter>({
     from: "",
@@ -602,6 +611,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
 
     setSelectedIds((current) => ({ ...current, [moduleKey]: id }));
     setFormState(null);
+    return id;
   };
 
   const removeModuleRecord = (
@@ -1044,6 +1054,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     itemActionState,
     detailState,
     receiveState,
+    projectCutListsState,
     query,
     itemDateFilter,
     selectedIds,
@@ -1059,6 +1070,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     setItemActionState,
     setDetailState,
     setReceiveState,
+    setProjectCutListsState,
     setSelectedId,
     saveModuleRecord,
     removeModuleRecord,

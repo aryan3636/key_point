@@ -227,12 +227,19 @@ button {
   gap: 1rem;
 }
 
-.topbar,
+.topbar {
+  padding: 0.85rem 1.5rem;
+}
+
 .panel {
   padding: 1.5rem;
 }
 
-.topbar,
+.topbar {
+  min-height: 58px;
+  gap: 1.35rem;
+}
+
 .panel {
   gap: 1.35rem;
 }
@@ -242,7 +249,6 @@ button {
   flex-direction: column;
 }
 
-.topbar > div:first-child,
 .panel-header > div:first-child {
   display: flex;
   flex-direction: column;
@@ -254,6 +260,11 @@ button {
 .detail-header h2,
 .login-panel h1 {
   margin: 0.2rem 0 0;
+}
+
+.topbar h1 {
+  font-size: 1.05rem;
+  font-weight: 700;
 }
 
 .panel-header {
@@ -270,8 +281,81 @@ button {
 }
 
 .topbar-actions {
-  flex-wrap: wrap;
+  margin-left: auto;
+  flex-wrap: nowrap;
   row-gap: 0.85rem;
+}
+
+.topbar-icon-button {
+  width: 36px;
+  height: 36px;
+  display: inline-grid;
+  place-items: center;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--accent-strong);
+  font-size: 1rem;
+}
+
+.topbar-icon-button:hover {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+:root[data-theme="dark"] .topbar-icon-button {
+  color: var(--accent);
+}
+
+.topbar-svg-icon {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.topbar-user {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding-left: 0.25rem;
+}
+
+.topbar-user strong,
+.topbar-user span {
+  display: block;
+}
+
+.topbar-user strong {
+  font-size: 0.9rem;
+}
+
+.topbar-user span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.user-avatar.small {
+  width: 32px;
+  height: 32px;
+  font-size: 0.8rem;
+}
+
+.topbar-signout {
+  font-size: 0.85rem;
+}
+
+.module-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.module-search {
+  max-width: 340px;
 }
 
 .search-input,
@@ -459,6 +543,80 @@ button {
   gap: 1.2rem;
 }
 
+.cutlist-metric-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.85rem;
+  margin-bottom: 1.15rem;
+}
+
+.cutlist-metric-card {
+  min-height: 82px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  padding: 0.85rem 1rem;
+  background: color-mix(in srgb, var(--panel-strong) 92%, transparent);
+}
+
+.cutlist-metric-card small {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.cutlist-metric-card strong {
+  margin-top: 0.25rem;
+  font-size: 1.45rem;
+}
+
+.cutlist-reveal-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1.15rem;
+  padding: 1rem 0 0;
+  border-top: 1px solid var(--line);
+}
+
+.cutlist-reveal-bar h3,
+.cutlist-reveal-bar p {
+  margin: 0;
+}
+
+.cutlist-reveal-bar p {
+  margin-top: 0.25rem;
+  color: var(--muted);
+}
+
+.cutlist-detail-reveal {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 240ms ease,
+    opacity 180ms ease,
+    margin-top 240ms ease;
+  margin-top: 0;
+}
+
+.cutlist-detail-reveal.is-open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  margin-top: 1.15rem;
+}
+
+.cutlist-detail-panel {
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 1.2rem;
+  padding: 1.25rem;
+  background: color-mix(in srgb, var(--panel-strong) 96%, transparent);
+}
+
 .segmented-control {
   display: inline-flex;
   padding: 0.25rem;
@@ -495,18 +653,38 @@ button {
   display: flex;
   gap: 0.75rem;
   position: relative;
-  justify-content: flex-end;
+  justify-content: flex-start;
+  align-items: center;
+  min-height: 2.2rem;
+}
+
+.project-row-actions {
+  justify-self: start;
+  width: auto;
+}
+
+.project-row-actions .menu-trigger {
+  width: 1rem;
+  min-width: 1rem;
+  justify-items: start;
 }
 
 .menu-shell {
   position: relative;
   display: inline-flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 
 .menu-trigger {
+  width: 2.2rem;
   min-width: 2.2rem;
+  height: 2.2rem;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
   font-weight: 700;
+  font-size: 1.25rem;
+  line-height: 1;
 }
 
 .action-menu {
@@ -759,6 +937,49 @@ button {
   place-items: center;
   padding: 1.25rem;
   background: rgba(8, 14, 16, 0.48);
+}
+
+.app-modal-backdrop {
+  z-index: 1220;
+}
+
+.app-modal-panel {
+  max-width: calc(100vw - 2rem);
+  max-height: calc(100vh - 2rem);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--panel-strong);
+  box-shadow: var(--shadow);
+}
+
+.app-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.app-modal-header h2,
+.app-modal-header p {
+  margin: 0;
+}
+
+.app-modal-header p {
+  margin-top: 0.3rem;
+  color: var(--muted);
+}
+
+.app-modal-body {
+  overflow: auto;
+  padding: 1.5rem;
+}
+
+.project-cutlist-actions {
+  margin-bottom: 1.25rem;
+  color: var(--muted);
 }
 
 .flyout-root {
@@ -1197,18 +1418,35 @@ button {
   .topbar,
   .panel-header,
   .header-actions,
-  .topbar-actions {
+  .module-toolbar {
     align-items: stretch;
     flex-direction: column;
   }
 
+  .topbar-actions {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    margin-left: 0;
+  }
+
   .search-input,
-  .search-input.compact {
+  .search-input.compact,
+  .module-search {
     width: 100%;
+    max-width: none;
   }
 
   .table-shell {
     overflow: auto;
+  }
+
+  .cutlist-metric-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cutlist-reveal-bar {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .table-row {

@@ -11,6 +11,7 @@ export function ModuleDetailFlyout() {
     records,
     setDetailState,
     setFormState,
+    setProjectCutListsState,
   } = useAppState();
 
   if (!detailState) {
@@ -32,7 +33,14 @@ export function ModuleDetailFlyout() {
         moduleKey={detailState.moduleKey}
         record={record as (Record<string, unknown> & { id: string }) | null}
         records={records}
-        onEdit={(id) => setFormState({ moduleKey: detailState.moduleKey, mode: "edit", recordId: id })}
+        onEdit={(id, targetModuleKey) =>
+          setFormState({
+            moduleKey: targetModuleKey ?? detailState.moduleKey,
+            mode: "edit",
+            recordId: id,
+          })
+        }
+        onOpenProjectCutLists={(projectId) => setProjectCutListsState({ projectId })}
       />
     </BaseFlyout>
   );

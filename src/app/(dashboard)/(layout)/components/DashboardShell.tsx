@@ -11,6 +11,7 @@ import { ModuleImportModal } from "@/app/(dashboard)/shared/components/import/Mo
 import { WithModuleWorkspace } from "@/app/(dashboard)/hoc/with-module-workspace/WithModuleWorkspace";
 import { ModuleDetailFlyout } from "@/app/(dashboard)/hoc/with-module-workspace/components/ModuleDetailFlyout";
 import { ReceivePurchaseOrderFlyout } from "@/app/(dashboard)/receiving/components/ReceivePurchaseOrderFlyout";
+import { ProjectCutListsModal } from "@/app/(dashboard)/projects/components/ProjectCutListsModal";
 import { useAppState } from "@/app/context/app-state-context";
 
 export function DashboardShell() {
@@ -33,10 +34,16 @@ export function DashboardShell() {
           <WithModuleWorkspace />
         )}
       </main>
-      {formState && <ModuleFormModal state={formState} />}
+      {formState && (
+        <ModuleFormModal
+          key={`${formState.moduleKey}-${formState.mode}-${formState.recordId ?? "new"}`}
+          state={formState}
+        />
+      )}
       {importState && <ModuleImportModal moduleKey={importState.moduleKey} />}
       <ModuleDetailFlyout />
       <ReceivePurchaseOrderFlyout />
+      <ProjectCutListsModal />
       <ItemActionModal />
     </div>
   );
