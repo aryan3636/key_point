@@ -11,6 +11,7 @@ import {
   makeId,
   ModuleKey,
   MovementRecord,
+  ProjectAreaRecord,
   ProjectRecord,
   PurchaseOrderRecord,
   ReceiptRecord,
@@ -61,6 +62,14 @@ export type ProjectCutListsState = {
   projectId: string;
 };
 
+export type CabinetFormState = {
+  projectId: string;
+  areaId: string;
+  recordId?: string;
+};
+
+export type ProjectWorkspaceTab = "projects" | "areas" | "cutlists";
+
 export type ItemDateFilter = {
   from: string;
   to: string;
@@ -77,6 +86,8 @@ type AppStateContextValue = {
   detailState: DetailState | null;
   receiveState: ReceiveState | null;
   projectCutListsState: ProjectCutListsState | null;
+  cabinetFormState: CabinetFormState | null;
+  projectWorkspaceTab: ProjectWorkspaceTab;
   query: string;
   itemDateFilter: ItemDateFilter;
   selectedIds: Record<string, string>;
@@ -95,6 +106,8 @@ type AppStateContextValue = {
   setDetailState: (state: DetailState | null) => void;
   setReceiveState: (state: ReceiveState | null) => void;
   setProjectCutListsState: (state: ProjectCutListsState | null) => void;
+  setCabinetFormState: (state: CabinetFormState | null) => void;
+  setProjectWorkspaceTab: (tab: ProjectWorkspaceTab) => void;
   setSelectedId: (
     moduleKey: Exclude<ModuleKey, "dashboard">,
     id: string
@@ -104,6 +117,7 @@ type AppStateContextValue = {
     values: Record<string, FormDataEntryValue>,
     existingId?: string
   ) => string;
+  saveProjectAreas: (projectId: string, areas: ProjectAreaRecord[]) => void;
   removeModuleRecord: (
     moduleKey: Exclude<ModuleKey, "dashboard">,
     id: string
@@ -146,6 +160,7 @@ function normalizeStoredCutList(record: Partial<CutListRecord>): CutListRecord {
   return {
     id: record.id || makeId("cut"),
     projectId: record.projectId || "",
+    areaId: record.areaId || "",
     code: record.code || "",
     itemName: record.itemName || "",
     cabinetCategory,
@@ -180,6 +195,40 @@ function normalizeStoredCutList(record: Partial<CutListRecord>): CutListRecord {
   };
 }
 
+function normalizeStoredProjectArea(record: Partial<ProjectAreaRecord>): ProjectAreaRecord {
+  const now = new Date().toISOString();
+  const createdAt = record.createdAt || now;
+
+  return {
+    id: record.id || makeId("area"),
+    areaName: record.areaName || "",
+    areaCode: (record.areaCode || "").toUpperCase(),
+    notes: record.notes || "",
+    createdAt,
+    updatedAt: record.updatedAt || createdAt,
+  };
+}
+
+function normalizeStoredProject(record: Partial<ProjectRecord>): ProjectRecord {
+  return {
+    id: record.id || makeId("pro"),
+    name: record.name || "",
+    code: record.code || "",
+    customerName: record.customerName || "",
+    siteAddress: record.siteAddress || record.location || "",
+    projectDate: record.projectDate || "",
+    preparedBy: record.preparedBy || "",
+    status: record.status || "Planning",
+    location: record.location || record.siteAddress || "",
+    budget: record.budget || 0,
+    notes: record.notes || "",
+    areas: Array.isArray(record.areas)
+      ? record.areas.map((area) => normalizeStoredProjectArea(area))
+      : [],
+    updatedAt: record.updatedAt || new Date().toISOString(),
+  };
+}
+
 function readStoredRecords(): RecordsState {
   if (typeof window === "undefined") {
     return seedRecords();
@@ -191,10 +240,20 @@ function readStoredRecords(): RecordsState {
 
   const seeded = seedRecords();
   const parsedState = JSON.parse(savedState) as Partial<RecordsState>;
+  const projects = (parsedState.projects ?? seeded.projects).map(normalizeStoredProject);
+  const cutLists = (parsedState.cutLists ?? seeded.cutLists).map(normalizeStoredCutList);
+
   return {
     ...seeded,
     ...parsedState,
-    cutLists: (parsedState.cutLists ?? seeded.cutLists).map(normalizeStoredCutList),
+    projects,
+    cutLists: cutLists.map((cutList) => ({
+      ...cutList,
+      areaId:
+        cutList.areaId ||
+        projects.find((project) => project.id === cutList.projectId)?.areas[0]?.id ||
+        "",
+    })),
   };
 }
 
@@ -204,6 +263,22 @@ function parseJson<T>(value: string, fallback: T): T {
   } catch {
     return fallback;
   }
+}
+
+function parseProjectAreas(value: string, now: string): ProjectAreaRecord[] {
+  const rows = parseJson<Array<Partial<ProjectAreaRecord>>>(value, []);
+
+  if (!Array.isArray(rows)) {
+    return [];
+  }
+
+  return rows.map((area) =>
+    normalizeStoredProjectArea({
+      ...area,
+      createdAt: area.createdAt || now,
+      updatedAt: now,
+    })
+  );
 }
 
 function findLocationIdByReceiptLocation(
@@ -303,6 +378,8 @@ export function AppStateProvider({ children }: PropsWithChildren) {
   const [receiveState, setReceiveState] = useState<ReceiveState | null>(null);
   const [projectCutListsState, setProjectCutListsState] =
     useState<ProjectCutListsState | null>(null);
+  const [cabinetFormState, setCabinetFormState] = useState<CabinetFormState | null>(null);
+  const [projectWorkspaceTab, setProjectWorkspaceTab] = useState<ProjectWorkspaceTab>("projects");
   const [query, setQuery] = useState("");
   const [itemDateFilter, setItemDateFilter] = useState<ItemDateFilter>({
     from: "",
@@ -452,9 +529,15 @@ export function AppStateProvider({ children }: PropsWithChildren) {
           id,
           name: text("name"),
           code: text("code"),
+          customerName: text("customerName"),
+          siteAddress: text("siteAddress"),
+          projectDate: text("projectDate"),
+          preparedBy: text("preparedBy"),
           status: text("status"),
-          location: text("location"),
+          location: text("location") || text("siteAddress"),
           budget: number("budget"),
+          notes: text("notes"),
+          areas: parseProjectAreas(text("areasJson"), now),
           updatedAt: now,
         };
         next.projects = sortByUpdatedAt(
@@ -478,6 +561,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
         const record: CutListRecord = {
           id,
           projectId: text("projectId"),
+          areaId: text("areaId"),
           code:
             text("code") ||
             generateNextNumber(
@@ -614,6 +698,30 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     return id;
   };
 
+  const saveProjectAreas = (projectId: string, areas: ProjectAreaRecord[]) => {
+    const now = new Date().toISOString();
+
+    setRecords((current) => ({
+      ...current,
+      projects: sortByUpdatedAt(
+        current.projects.map((project) =>
+          project.id === projectId
+            ? {
+                ...project,
+                areas: areas.map((area) =>
+                  normalizeStoredProjectArea({
+                    ...area,
+                    updatedAt: area.updatedAt || now,
+                  })
+                ),
+                updatedAt: now,
+              }
+            : project
+        )
+      ),
+    }));
+  };
+
   const removeModuleRecord = (
     moduleKey: Exclude<ModuleKey, "dashboard">,
     id: string
@@ -690,11 +798,17 @@ export function AppStateProvider({ children }: PropsWithChildren) {
         next.projects = sortByUpdatedAt([
           ...rows.map((row, index) => ({
             id: makeId("pro"),
-            name: row.name || `Imported Project ${index + 1}`,
-            code: row.code || `IMP-${index + 10}`,
+            name: row.name || row.projectName || `Imported Project ${index + 1}`,
+            code: row.code || row.jobNumber || `IMP-${index + 10}`,
+            customerName: row.customerName || "",
+            siteAddress: row.siteAddress || row.location || "",
+            projectDate: row.projectDate || row.date || "",
+            preparedBy: row.preparedBy || "",
             status: row.status || "Planning",
-            location: row.location || "Imported Location",
+            location: row.location || row.siteAddress || "Imported Location",
             budget: Number(row.budget || 1000000 * (index + 1)),
+            notes: row.notes || "",
+            areas: [],
             updatedAt: now,
           })),
           ...current.projects,
@@ -721,6 +835,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
                 current.projects.find((project) => project.name === row.projectName)?.id ??
                 current.projects[0]?.id ??
                 "",
+              areaId: row.areaId || "",
               code: row.code || `B${current.cutLists.length + index + 1}`,
               itemName: row.itemName || `Imported Cabinet ${index + 1}`,
               cabinetCategory,
@@ -1055,6 +1170,8 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     detailState,
     receiveState,
     projectCutListsState,
+    cabinetFormState,
+    projectWorkspaceTab,
     query,
     itemDateFilter,
     selectedIds,
@@ -1071,8 +1188,11 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     setDetailState,
     setReceiveState,
     setProjectCutListsState,
+    setCabinetFormState,
+    setProjectWorkspaceTab,
     setSelectedId,
     saveModuleRecord,
+    saveProjectAreas,
     removeModuleRecord,
     runImport,
     saveItemAction,

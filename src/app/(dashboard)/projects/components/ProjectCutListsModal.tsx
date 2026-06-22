@@ -21,7 +21,7 @@ export function ProjectCutListsModal() {
     records,
     projectCutListsState,
     setProjectCutListsState,
-    setFormState,
+    setCabinetFormState,
   } = useAppState();
 
   const project = records.projects.find(
@@ -41,26 +41,6 @@ export function ProjectCutListsModal() {
     >
       <div className="modal-actions project-cutlist-actions">
         <span>{cutLists.length} cabinet rows linked to this project</span>
-        {project && (
-          <button
-            className="primary-button"
-            type="button"
-            onClick={() => {
-              setProjectCutListsState(null);
-              setFormState({
-                moduleKey: "cutLists",
-                mode: "create",
-                initialValues: {
-                  projectId: project.id,
-                  itemName: `${project.name} cabinet`,
-                  notes: `Created from project ${project.name}.`,
-                },
-              });
-            }}
-          >
-            Create Cutlist
-          </button>
-        )}
       </div>
 
       <div className="cutlist-group-stack">
@@ -82,12 +62,16 @@ export function ProjectCutListsModal() {
                   className="secondary-button"
                   type="button"
                   onClick={() => {
+                    const areaId = cutList.areaId || project?.areas[0]?.id || "";
+
                     setProjectCutListsState(null);
-                    setFormState({
-                      moduleKey: "cutLists",
-                      mode: "edit",
-                      recordId: cutList.id,
-                    });
+                    if (areaId) {
+                      setCabinetFormState({
+                        projectId: cutList.projectId,
+                        areaId,
+                        recordId: cutList.id,
+                      });
+                    }
                   }}
                 >
                   Edit

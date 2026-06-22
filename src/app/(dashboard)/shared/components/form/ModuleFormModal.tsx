@@ -8,6 +8,8 @@ import {
   CutListRecord,
   generateNextNumber,
   generateSku,
+  makeId,
+  ProjectAreaRecord,
   PurchaseOrderRecord,
   ReceiptRecord,
   RecordsState,
@@ -20,7 +22,13 @@ import {
 } from "@/app/(dashboard)/shared/components/form/FormFields";
 
 export function ModuleFormModal({ state }: { state: FormState }) {
-  const { records, saveModuleRecord, setFormState, setProjectCutListsState } = useAppState();
+  const {
+    records,
+    saveModuleRecord,
+    saveProjectAreas,
+    setCabinetFormState,
+    setFormState,
+  } = useAppState();
 
   const sourceList = records[state.moduleKey];
   const record = sourceList.find((entry) => entry.id === state.recordId) as
@@ -30,60 +38,14 @@ export function ModuleFormModal({ state }: { state: FormState }) {
     ...state.initialValues,
     ...record,
   } as Record<string, unknown>;
-  const projectCutListsAction =
-    state.moduleKey === "projects" && state.mode === "edit" && state.recordId ? (
-      <>
-        <button
-          className="secondary-button"
-          type="button"
-          onClick={() => {
-            setFormState({
-              moduleKey: "cutLists",
-              mode: "create",
-              initialValues: {
-                projectId: state.recordId!,
-                itemName: `${String(formDefaults.name ?? "Project")} cabinet`,
-                notes: `Created from project ${String(formDefaults.name ?? "Project")}.`,
-              },
-            });
-          }}
-        >
-          Create Cutlist
-        </button>
-        <button
-          className="secondary-button"
-          type="button"
-          onClick={() => setProjectCutListsState({ projectId: state.recordId! })}
-        >
-          Open Cutlists
-        </button>
-      </>
-    ) : null;
-
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
-    const nativeEvent = event.nativeEvent as SubmitEvent;
-    const submitter = nativeEvent.submitter as HTMLButtonElement | null;
-    const intent = submitter?.value;
-    const savedId = saveModuleRecord(
+    saveModuleRecord(
       state.moduleKey,
       Object.fromEntries(formData.entries()),
       state.recordId
     );
-
-    if (state.moduleKey === "projects" && intent === "createCutList") {
-      const projectName = String(formData.get("name") ?? "Project").trim() || "Project";
-      setFormState({
-        moduleKey: "cutLists",
-        mode: "create",
-        initialValues: {
-          projectId: savedId,
-          itemName: `${projectName} cabinet`,
-          notes: `Created from project ${projectName}.`,
-        },
-      });
-    }
   };
 
   return (
@@ -93,13 +55,22 @@ export function ModuleFormModal({ state }: { state: FormState }) {
       title={`${state.mode === "create" ? "Create" : "Edit"} ${getModuleLabel(state.moduleKey)}`}
       width={680}
       zIndex={1210}
-      headerAction={projectCutListsAction}
     >
       <form className="flyout-form" onSubmit={submit}>
         <div className="form-grid">
           {state.moduleKey === "items" && <ItemFields record={formDefaults} records={records} />}
           {state.moduleKey === "vendors" && <VendorFields record={formDefaults} records={records} />}
-          {state.moduleKey === "projects" && <ProjectFields record={formDefaults} />}
+          {state.moduleKey === "projects" && (
+            <ProjectFields
+              onOpenCabinetForm={(projectId, areaId) => {
+                setCabinetFormState({ projectId, areaId });
+                setFormState(null);
+              }}
+              onSaveProjectAreas={saveProjectAreas}
+              projectId={state.recordId}
+              record={formDefaults}
+            />
+          )}
           {state.moduleKey === "cutLists" && <CutListFields record={formDefaults} records={records} />}
           {state.moduleKey === "workers" && <WorkerFields record={formDefaults} records={records} />}
           {state.moduleKey === "locations" && <LocationFields record={formDefaults} />}
@@ -115,16 +86,6 @@ export function ModuleFormModal({ state }: { state: FormState }) {
           <button className="secondary-button" type="button" onClick={() => setFormState(null)}>
             Cancel
           </button>
-          {state.moduleKey === "projects" && (
-            <button
-              className="primary-button"
-              name="submitIntent"
-              value="createCutList"
-              type="submit"
-            >
-              Create Cutlist
-            </button>
-          )}
           <button className="primary-button" type="submit">
             Save
           </button>
@@ -221,15 +182,150 @@ function VendorFields({
   );
 }
 
-function ProjectFields({ record }: { record?: Record<string, unknown> }) {
+function normalizeProjectAreas(value: unknown): ProjectAreaRecord[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.map((area) => {
+    const source = area as Partial<ProjectAreaRecord>;
+    const now = new Date().toISOString();
+    const createdAt = source.createdAt || now;
+
+    return {
+      id: source.id || makeId("area"),
+      areaName: source.areaName || "",
+      areaCode: (source.areaCode || "").toUpperCase(),
+      notes: source.notes || "",
+      createdAt,
+      updatedAt: source.updatedAt || createdAt,
+    };
+  });
+}
+
+function ProjectFields({
+  record,
+  projectId,
+  onSaveProjectAreas,
+  onOpenCabinetForm,
+}: {
+  record?: Record<string, unknown>;
+  projectId?: string;
+  onSaveProjectAreas: (projectId: string, areas: ProjectAreaRecord[]) => void;
+  onOpenCabinetForm: (projectId: string, areaId: string) => void;
+}) {
+  const [areas, setAreas] = useState<ProjectAreaRecord[]>(() =>
+    normalizeProjectAreas(record?.areas)
+  );
+  const [areaSaveMessage, setAreaSaveMessage] = useState("");
+  const [areaDraft, setAreaDraft] = useState({
+    id: "",
+    areaName: "",
+    areaCode: "",
+    notes: "",
+  });
+  const canSaveArea = Boolean(areaDraft.areaName.trim() && areaDraft.areaCode.trim());
+
+  const resetAreaDraft = () => {
+    setAreaDraft({ id: "", areaName: "", areaCode: "", notes: "" });
+  };
+
+  const saveArea = () => {
+    if (!canSaveArea) {
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const areaName = areaDraft.areaName.trim();
+    const nextArea: ProjectAreaRecord = {
+      id: areaDraft.id || makeId("area"),
+      areaName,
+      areaCode: areaDraft.areaCode.trim().toUpperCase(),
+      notes: areaDraft.notes.trim(),
+      createdAt: areas.find((area) => area.id === areaDraft.id)?.createdAt || now,
+      updatedAt: now,
+    };
+    const nextAreas = areas.some((area) => area.id === nextArea.id)
+      ? areas.map((area) => (area.id === nextArea.id ? nextArea : area))
+      : [...areas, nextArea];
+
+    setAreas(nextAreas);
+    if (projectId) {
+      onSaveProjectAreas(projectId, nextAreas);
+      setAreaSaveMessage("Area saved. You can add cabinets to it now.");
+    } else {
+      setAreaSaveMessage("Area saved in this project draft. Save the project to add cabinets.");
+    }
+    resetAreaDraft();
+  };
+
+  const deleteArea = (areaId: string) => {
+    const nextAreas = areas.filter((candidate) => candidate.id !== areaId);
+
+    setAreas(nextAreas);
+    if (projectId) {
+      onSaveProjectAreas(projectId, nextAreas);
+      setAreaSaveMessage("Area deleted.");
+    }
+    if (areaDraft.id === areaId) {
+      resetAreaDraft();
+    }
+  };
+
   return (
     <>
-      <FormField name="name" label="Project Name" defaultValue={String(record?.name ?? "")} />
-      <FormField name="code" label="Code" defaultValue={String(record?.code ?? "")} />
+      <input name="areasJson" type="hidden" value={JSON.stringify(areas)} readOnly />
+      <div className="form-section-title field-full">
+        <h3>Project Info</h3>
+        <p>Site / Address is project metadata. Areas / Rooms are attached below.</p>
+      </div>
       <FormField
+        name="name"
+        label="Project Name"
+        defaultValue={String(record?.name ?? "")}
+        placeholder="Smith Kitchen"
+      />
+      <FormField
+        name="code"
+        label="Job Number"
+        defaultValue={String(record?.code ?? "")}
+        placeholder="J-1001"
+      />
+      <FormField
+        name="customerName"
+        label="Customer Name"
+        required={false}
+        defaultValue={String(record?.customerName ?? "")}
+        placeholder="Customer name"
+      />
+      <FormField
+        name="siteAddress"
+        label="Site / Address"
+        required={false}
+        defaultValue={String(record?.siteAddress ?? record?.location ?? "")}
+        placeholder="Site or address"
+      />
+      <FormField
+        name="projectDate"
+        label="Date"
+        type="date"
+        required={false}
+        defaultValue={String(record?.projectDate ?? "")}
+      />
+      <FormField
+        name="preparedBy"
+        label="Prepared By"
+        required={false}
+        defaultValue={String(record?.preparedBy ?? "")}
+        placeholder="Prepared by"
+      />
+      <FormSelectField
         name="status"
         label="Status"
         defaultValue={String(record?.status ?? "Planning")}
+        options={["Planning", "Active", "Draft", "In Review", "Final", "Completed"].map(
+          (value) => ({ value, label: value })
+        )}
       />
       <FormField name="location" label="Location" defaultValue={String(record?.location ?? "")} />
       <FormField
@@ -238,6 +334,114 @@ function ProjectFields({ record }: { record?: Record<string, unknown> }) {
         type="number"
         defaultValue={String(record?.budget ?? 0)}
       />
+      <FormTextArea name="notes" label="Notes" defaultValue={String(record?.notes ?? "")} />
+      <section className="project-form-section field-full">
+        <div className="section-header">
+          <div>
+            <h3>Areas / Rooms</h3>
+            <p>Add Kitchen, Pantry, Bedroom, or any other work area for this project.</p>
+          </div>
+        </div>
+        <div className="area-editor-grid">
+          <label className="field">
+            <span>Area Name</span>
+            <input
+              value={areaDraft.areaName}
+              onChange={(event) =>
+                setAreaDraft((current) => ({ ...current, areaName: event.target.value }))
+              }
+              placeholder="Kitchen"
+              type="text"
+            />
+          </label>
+          <label className="field">
+            <span>Area Code</span>
+            <input
+              value={areaDraft.areaCode}
+              onChange={(event) =>
+                setAreaDraft((current) => ({ ...current, areaCode: event.target.value }))
+              }
+              placeholder="KIT"
+              type="text"
+            />
+          </label>
+          <label className="field field-full">
+            <span>Area Notes</span>
+            <textarea
+              value={areaDraft.notes}
+              onChange={(event) =>
+                setAreaDraft((current) => ({ ...current, notes: event.target.value }))
+              }
+              placeholder="Area / room notes"
+              rows={3}
+            />
+          </label>
+          <div className="pill-actions field-full">
+            <button
+              className="primary-button"
+              disabled={!canSaveArea}
+              onClick={saveArea}
+              type="button"
+            >
+              Save Area
+            </button>
+            {areaDraft.id && (
+              <button className="secondary-button" onClick={resetAreaDraft} type="button">
+                Cancel Area Edit
+              </button>
+            )}
+          </div>
+        </div>
+        {areaSaveMessage && <div className="form-message success">{areaSaveMessage}</div>}
+        <div className="area-list">
+          {areas.map((area) => (
+            <article className="area-card" key={area.id}>
+              <div className="area-card-header">
+                <div>
+                  <h3>{area.areaName || "Untitled Area"}</h3>
+                  <span className="area-code">{area.areaCode || "No Code"}</span>
+                </div>
+                {projectId && (
+                  <button
+                    className="primary-button"
+                    onClick={() => onOpenCabinetForm(projectId, area.id)}
+                    type="button"
+                  >
+                    + Add Cabinet / Item
+                  </button>
+                )}
+              </div>
+              {area.notes && <p className="area-notes">{area.notes}</p>}
+              <div className="pill-actions">
+                <button
+                  className="secondary-button"
+                  onClick={() =>
+                    setAreaDraft({
+                      id: area.id,
+                      areaName: area.areaName,
+                      areaCode: area.areaCode,
+                      notes: area.notes,
+                    })
+                  }
+                  type="button"
+                >
+                  Edit Area
+                </button>
+                <button
+                  className="table-action danger"
+                  onClick={() => deleteArea(area.id)}
+                  type="button"
+                >
+                  Delete Area
+                </button>
+              </div>
+            </article>
+          ))}
+          {areas.length === 0 && (
+            <div className="empty-state">No areas yet. Add a room before saving if needed.</div>
+          )}
+        </div>
+      </section>
     </>
   );
 }

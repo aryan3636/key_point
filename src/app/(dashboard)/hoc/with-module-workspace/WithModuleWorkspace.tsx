@@ -17,7 +17,6 @@ export function WithModuleWorkspace() {
     setItemActionState,
     setDetailState,
     setReceiveState,
-    setProjectCutListsState,
     query,
     setQuery,
     itemDateFilter,
@@ -103,7 +102,6 @@ export function WithModuleWorkspace() {
           onDelete={(id) => removeModuleRecord(activeModule, id)}
           onReceive={(id) => setReceiveState({ poId: id })}
           onAllocate={(id) => setItemActionState({ itemId: id, action: "Issue" })}
-          onCreateCutList={(id) => setProjectCutListsState({ projectId: id })}
         />
       </div>
     </section>

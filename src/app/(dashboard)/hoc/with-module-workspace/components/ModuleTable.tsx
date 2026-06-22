@@ -13,7 +13,6 @@ export function ModuleTable({
   onDelete,
   onReceive,
   onAllocate,
-  onCreateCutList,
 }: {
   moduleKey: Exclude<ModuleKey, "dashboard">;
   records: Array<Record<string, unknown> & { id: string }>;
@@ -24,7 +23,6 @@ export function ModuleTable({
   onDelete: (id: string) => void;
   onReceive?: (id: string) => void;
   onAllocate?: (id: string) => void;
-  onCreateCutList?: (id: string) => void;
 }) {
   const [openMenuId, setOpenMenuId] = useState("");
 
@@ -34,7 +32,7 @@ export function ModuleTable({
       : moduleKey === "vendors"
         ? ["Vendor No", "Vendor", "Contact", "Updated"]
         : moduleKey === "projects"
-          ? ["Project", "Code", "Status", "Location"]
+          ? ["Project", "Job #", "Customer", "Areas"]
           : moduleKey === "cutLists"
             ? ["Cabinet", "Project", "Type", "Status"]
             : moduleKey === "workers"
@@ -63,11 +61,12 @@ export function ModuleTable({
       ];
     }
     if (moduleKey === "projects") {
+      const areas = Array.isArray(record.areas) ? record.areas : [];
       return [
         String(record.name),
         String(record.code),
-        String(record.status),
-        String(record.location),
+        String(record.customerName || record.status || "-"),
+        `${areas.length} ${areas.length === 1 ? "area" : "areas"}`,
       ];
     }
     if (moduleKey === "cutLists") {
@@ -229,17 +228,6 @@ export function ModuleTable({
                       }}
                     >
                       Edit Project
-                    </button>
-                    <button
-                      className="table-action"
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setOpenMenuId("");
-                        onCreateCutList?.(record.id);
-                      }}
-                    >
-                      Edit Cutlist
                     </button>
                     <button
                       className="table-action danger"

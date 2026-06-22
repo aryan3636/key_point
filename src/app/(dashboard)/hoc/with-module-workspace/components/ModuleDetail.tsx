@@ -79,13 +79,13 @@ export function ModuleDetail({
   record,
   records,
   onEdit,
-  onOpenProjectCutLists,
+  onOpenCabinetForm,
 }: {
   moduleKey: Exclude<ModuleKey, "dashboard">;
   record: (Record<string, unknown> & { id: string }) | null;
   records: RecordsState;
   onEdit: (id: string, moduleKey?: Exclude<ModuleKey, "dashboard">) => void;
-  onOpenProjectCutLists?: (projectId: string) => void;
+  onOpenCabinetForm?: (projectId: string, areaId: string, recordId?: string) => void;
 }) {
   if (!record) {
     return (
@@ -178,6 +178,7 @@ export function ModuleDetail({
     const project = record as unknown as ProjectRecord;
     const taggedPOs = records.purchaseOrders.filter((po) => po.projectId === project.id);
     const issuedMaterials = records.movements.filter((movement) => movement.target === project.name);
+    const areas = Array.isArray(project.areas) ? project.areas : [];
     const projectCutLists = sortCutListsByCode(
       records.cutLists.filter((cutList) => cutList.projectId === project.id)
     );
@@ -195,10 +196,16 @@ export function ModuleDetail({
         <section className="detail-section">
           {[
             ["Status", project.status],
-            ["Location", project.location],
+            ["Job Number", project.code],
+            ["Customer Name", project.customerName || "-"],
+            ["Site / Address", project.siteAddress || project.location || "-"],
+            ["Date", project.projectDate ? formatDate(project.projectDate) : "-"],
+            ["Prepared By", project.preparedBy || "-"],
             ["Budget", formatCurrency(project.budget)],
+            ["Areas / Rooms", String(areas.length)],
             ["Related PO Lines", String(taggedPOs.reduce((count, po) => count + po.lines.length, 0))],
             ["Issued materials", String(issuedMaterials.length)],
+            ["Notes", project.notes || "-"],
           ].map(([label, value]) => (
             <div className="detail-line" key={label}>
               <strong>{label}</strong>
@@ -209,36 +216,76 @@ export function ModuleDetail({
         <section className="detail-section">
           <div className="section-header">
             <div>
-              <h3>Cutlists</h3>
-              <p>{projectCutLists.length} linked cabinet rows</p>
+              <h3>Areas / Rooms</h3>
+              <p>{areas.length} saved work areas</p>
             </div>
-            <button
-              className="secondary-button"
-              type="button"
-              onClick={() => onOpenProjectCutLists?.(project.id)}
-            >
-              Edit
-            </button>
           </div>
-          <div className="timeline">
-            {projectCutLists.map((cutList) => {
-              const generatedRows = generateCabinetCutListRows(cutList, records.projects);
-
-              return (
-                <div className="timeline-row po-line-summary" key={cutList.id}>
-                  <strong>{cutList.code}</strong>
-                  <span>{cutList.itemName}</span>
-                  <span>{cutList.cabinetCategory} / {cutList.cabinetSubtype}</span>
-                  <span>{cutList.status}</span>
-                  <span>{generatedRows.length} parts</span>
+          <div className="area-list">
+            {areas.map((area) => (
+              <article className="area-card" key={area.id}>
+                <div className="area-card-header">
+                  <div>
+                    <h3>{area.areaName || "Untitled Area"}</h3>
+                    <span className="area-code">{area.areaCode || "No Code"}</span>
+                  </div>
+                  <button
+                    className="primary-button"
+                    onClick={() => onOpenCabinetForm?.(project.id, area.id)}
+                    type="button"
+                  >
+                    + Add Cabinet / Item
+                  </button>
                 </div>
-              );
-            })}
-            {projectCutLists.length === 0 && (
-              <div className="empty-state">No cutlists are linked to this project yet.</div>
+                {area.notes && <p className="area-notes">{area.notes}</p>}
+                <section className="cabinet-items-section">
+                  <h4>Cabinet Items</h4>
+                  <div className="area-cabinet-list">
+                    {projectCutLists
+                      .filter((cutList) => cutList.areaId === area.id)
+                      .map((cutList) => {
+                        const generatedRows = generateCabinetCutListRows(cutList, records.projects);
+
+                        return (
+                          <div className="area-cabinet-row" key={cutList.id}>
+                            <div>
+                              <strong>{cutList.code}</strong>
+                              <span>{cutList.itemName}</span>
+                            </div>
+                            <span>{cutList.cabinetCategory} / {cutList.cabinetSubtype}</span>
+                            <span>{generatedRows.length} parts</span>
+                            <button
+                              className="table-action"
+                              onClick={() => onOpenCabinetForm?.(project.id, area.id, cutList.id)}
+                              type="button"
+                            >
+                              Edit
+                            </button>
+                          </div>
+                        );
+                      })}
+                    {projectCutLists.filter((cutList) => cutList.areaId === area.id).length === 0 && (
+                      <p>No cabinet items added yet.</p>
+                    )}
+                  </div>
+                </section>
+              </article>
+            ))}
+            {areas.length === 0 && (
+              <div className="empty-state">
+                No areas added yet. Add Kitchen, Pantry, Bedroom, or another work area.
+              </div>
             )}
           </div>
         </section>
+        {projectCutLists.some((cutList) => !cutList.areaId) && (
+          <section className="detail-section">
+            <h3>Unassigned Cabinets</h3>
+            <div className="empty-state">
+              {projectCutLists.filter((cutList) => !cutList.areaId).length} cabinet rows do not
+              have an area yet. Edit them from the Cut Lists module to assign an area.
+            </div>
+          </section>
+        )}
       </div>
     );
   }

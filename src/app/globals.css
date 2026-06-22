@@ -143,6 +143,11 @@ button {
   gap: 0.55rem;
 }
 
+.nav-group {
+  display: grid;
+  gap: 0.35rem;
+}
+
 .nav-link {
   display: flex;
   align-items: center;
@@ -159,6 +164,62 @@ button {
 .nav-link.is-active {
   border-color: rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.09);
+}
+
+.sidebar-subnav {
+  display: grid;
+  gap: 0.25rem;
+  padding-left: 0.85rem;
+}
+
+.sidebar-subnav button {
+  border: 1px solid transparent;
+  border-radius: 0.8rem;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.72);
+  padding: 0.55rem 0.8rem;
+  text-align: left;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.sidebar-subnav button:hover,
+.sidebar-subnav button.is-active {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.project-tabs {
+  display: inline-flex;
+  width: fit-content;
+  padding: 0.25rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel-strong) 84%, transparent);
+}
+
+.project-tabs button {
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  padding: 0.6rem 1rem;
+  font-weight: 700;
+}
+
+.project-tabs button.is-active {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.project-filter-bar {
+  flex-wrap: wrap;
+}
+
+.project-page-panel,
+.project-page-form {
+  gap: 1.1rem;
 }
 
 .nav-copy {
@@ -442,6 +503,10 @@ button {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.detail-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .dashboard-panels {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -450,6 +515,13 @@ button {
 .info-card {
   border-radius: 1.3rem;
   padding: 1.1rem;
+}
+
+.detail-grid .info-card {
+  min-height: 104px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .stat-card strong,
@@ -541,6 +613,44 @@ button {
   display: flex;
   flex-direction: column;
   gap: 1.2rem;
+}
+
+.cutlist-area-groups {
+  display: grid;
+  gap: 1rem;
+}
+
+.cutlist-area-group {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.cutlist-area-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.25rem 0.1rem;
+}
+
+.cutlist-area-heading h3,
+.cutlist-area-heading p {
+  margin: 0;
+}
+
+.cutlist-area-heading p,
+.cutlist-area-heading span {
+  color: var(--muted);
+}
+
+.cutlist-list-row {
+  grid-template-columns: 0.8fr 1.4fr 1fr 0.75fr 0.55fr 0.7fr;
+  min-width: 860px;
+}
+
+.project-area-row {
+  grid-template-columns: 1.1fr 0.8fr 1.15fr 1.5fr 0.65fr;
+  min-width: 820px;
 }
 
 .cutlist-metric-strip {
@@ -714,6 +824,252 @@ button {
 
 .detail-section h3 {
   margin: 0 0 0.8rem;
+}
+
+.form-section-title {
+  padding-top: 0.25rem;
+}
+
+.form-section-title h3,
+.project-form-section h3,
+.area-card h3,
+.cabinet-items-section h4 {
+  margin: 0;
+}
+
+.form-section-title p,
+.project-form-section p,
+.area-notes,
+.cabinet-items-section p {
+  margin: 0.3rem 0 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.project-form-section {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 1.2rem;
+  background: color-mix(in srgb, var(--panel-strong) 92%, transparent);
+}
+
+.area-editor-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.area-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.area-card {
+  display: grid;
+  gap: 0.8rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--panel-strong) 92%, transparent);
+}
+
+.clickable-card {
+  cursor: pointer;
+}
+
+.clickable-card:hover,
+.clickable-card:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  background: color-mix(in srgb, var(--accent-soft) 44%, var(--panel-strong));
+  outline: none;
+}
+
+.area-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.area-card-title-block {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.labeled-stack {
+  display: grid;
+  gap: 0.42rem;
+}
+
+.labeled-line {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 0.7rem;
+  align-items: start;
+  line-height: 1.45;
+}
+
+.labeled-line span {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.labeled-line strong {
+  color: var(--text);
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.area-meta-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--muted);
+}
+
+.area-meta-line strong {
+  color: var(--text);
+}
+
+.area-meta-label {
+  display: inline-flex;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 0.18rem 0.5rem;
+  background: color-mix(in srgb, var(--panel-strong) 82%, transparent);
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.area-code {
+  display: inline-block;
+  width: fit-content;
+  margin-top: 0.35rem;
+  padding: 0.22rem 0.55rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.cabinet-items-section {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 0.9rem;
+  background: color-mix(in srgb, var(--panel-strong) 96%, transparent);
+}
+
+.area-cabinet-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.area-cabinet-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto auto;
+  gap: 0.8rem;
+  align-items: center;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--line);
+}
+
+.area-cabinet-row:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.area-cabinet-row strong,
+.area-cabinet-row span {
+  display: block;
+}
+
+.area-cabinet-row span {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.cabinet-page {
+  gap: 1.1rem;
+}
+
+.cabinet-form-page {
+  display: grid;
+  gap: 1rem;
+}
+
+.form-section {
+  min-width: 0;
+  display: grid;
+  gap: 1rem;
+  margin: 0;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 1.15rem;
+  background: color-mix(in srgb, var(--panel-strong) 90%, transparent);
+}
+
+.form-section legend {
+  padding: 0 0.45rem;
+  color: var(--text);
+  font-weight: 800;
+}
+
+.form-message {
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--panel-strong) 92%, transparent);
+  color: var(--muted);
+}
+
+.form-message.error {
+  border-color: color-mix(in srgb, var(--danger) 42%, var(--line));
+  background: color-mix(in srgb, var(--danger) 9%, var(--panel-strong));
+  color: var(--danger);
+}
+
+.form-message.success {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--line));
+  background: color-mix(in srgb, var(--accent) 10%, var(--panel-strong));
+  color: var(--accent-strong);
+}
+
+.live-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.cabinet-page-footer {
+  position: sticky;
+  bottom: 0;
+  background: var(--panel-strong);
+}
+
+.btn-coming-soon {
+  justify-self: start;
+}
+
+.btn-coming-soon span {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--line) 60%, transparent);
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
 }
 
 .pill-actions {
@@ -1363,9 +1719,17 @@ button {
 @media (max-width: 1100px) {
   .workspace-grid,
   .dashboard-panels,
-  .card-grid,
-  .form-grid {
+  .form-grid,
+  .area-editor-grid,
+  .live-summary-grid,
+  .area-cabinet-row,
+  .labeled-line {
     grid-template-columns: 1fr;
+  }
+
+  .card-grid,
+  .detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .app-shell {
@@ -1534,6 +1898,12 @@ button {
 
 @media (max-width: 640px) {
   .sidebar-nav {
+    grid-template-columns: 1fr;
+  }
+
+  .card-grid,
+  .detail-grid,
+  .cutlist-metric-strip {
     grid-template-columns: 1fr;
   }
 

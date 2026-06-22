@@ -12,10 +12,12 @@ import { WithModuleWorkspace } from "@/app/(dashboard)/hoc/with-module-workspace
 import { ModuleDetailFlyout } from "@/app/(dashboard)/hoc/with-module-workspace/components/ModuleDetailFlyout";
 import { ReceivePurchaseOrderFlyout } from "@/app/(dashboard)/receiving/components/ReceivePurchaseOrderFlyout";
 import { ProjectCutListsModal } from "@/app/(dashboard)/projects/components/ProjectCutListsModal";
+import { CabinetFormPage } from "@/app/(dashboard)/projects/components/CabinetFormPage";
+import { ProjectWorkspace } from "@/app/(dashboard)/projects/components/ProjectWorkspace";
 import { useAppState } from "@/app/context/app-state-context";
 
 export function DashboardShell() {
-  const { user, activeModule, formState, importState } = useAppState();
+  const { user, activeModule, formState, importState, cabinetFormState } = useAppState();
 
   if (!user) {
     return <LoginScreen />;
@@ -26,25 +28,29 @@ export function DashboardShell() {
       <Sidebar />
       <main className="content-shell">
         <Topbar />
-        {activeModule === "dashboard" ? (
+        {cabinetFormState ? (
+          <CabinetFormPage />
+        ) : activeModule === "dashboard" ? (
           <DashboardView />
         ) : activeModule === "cutLists" ? (
           <CutListWorkspace />
+        ) : activeModule === "projects" ? (
+          <ProjectWorkspace />
         ) : (
           <WithModuleWorkspace />
         )}
       </main>
-      {formState && (
+      {!cabinetFormState && formState && (
         <ModuleFormModal
           key={`${formState.moduleKey}-${formState.mode}-${formState.recordId ?? "new"}`}
           state={formState}
         />
       )}
-      {importState && <ModuleImportModal moduleKey={importState.moduleKey} />}
-      <ModuleDetailFlyout />
-      <ReceivePurchaseOrderFlyout />
-      <ProjectCutListsModal />
-      <ItemActionModal />
+      {!cabinetFormState && importState && <ModuleImportModal moduleKey={importState.moduleKey} />}
+      {!cabinetFormState && <ModuleDetailFlyout />}
+      {!cabinetFormState && <ReceivePurchaseOrderFlyout />}
+      {!cabinetFormState && <ProjectCutListsModal />}
+      {!cabinetFormState && <ItemActionModal />}
     </div>
   );
 }

@@ -4,7 +4,13 @@ import { menuItems } from "@/app/(dashboard)/(layout)/config/menu-items";
 import { useAppState } from "@/app/context/app-state-context";
 
 export function Sidebar() {
-  const { activeModule, setActiveModule, user } = useAppState();
+  const {
+    activeModule,
+    projectWorkspaceTab,
+    setActiveModule,
+    setProjectWorkspaceTab,
+    user,
+  } = useAppState();
 
   return (
     <aside className="sidebar">
@@ -18,17 +24,47 @@ export function Sidebar() {
 
       <nav className="sidebar-nav">
         {menuItems.map((item) => (
-          <button
-            key={item.key}
-            className={`nav-link ${activeModule === item.key ? "is-active" : ""}`}
-            onClick={() => setActiveModule(item.key)}
-            type="button"
-          >
-            <span className="nav-copy">
-              <strong>{item.label}</strong>
-              <small>{item.blurb}</small>
-            </span>
-          </button>
+          <div className="nav-group" key={item.key}>
+            <button
+              className={`nav-link ${activeModule === item.key ? "is-active" : ""}`}
+              onClick={() => {
+                setActiveModule(item.key);
+                if (item.key === "projects") {
+                  setProjectWorkspaceTab("projects");
+                }
+              }}
+              type="button"
+            >
+              <span className="nav-copy">
+                <strong>{item.label}</strong>
+                <small>{item.blurb}</small>
+              </span>
+            </button>
+            {item.key === "projects" && activeModule === "projects" && (
+              <div className="sidebar-subnav">
+                <button
+                  className={projectWorkspaceTab === "areas" ? "is-active" : ""}
+                  onClick={() => {
+                    setActiveModule("projects");
+                    setProjectWorkspaceTab("areas");
+                  }}
+                  type="button"
+                >
+                  Area
+                </button>
+                <button
+                  className={projectWorkspaceTab === "cutlists" ? "is-active" : ""}
+                  onClick={() => {
+                    setActiveModule("projects");
+                    setProjectWorkspaceTab("cutlists");
+                  }}
+                  type="button"
+                >
+                  Cut Lists
+                </button>
+              </div>
+            )}
+          </div>
         ))}
       </nav>
 

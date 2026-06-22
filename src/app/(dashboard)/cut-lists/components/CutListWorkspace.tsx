@@ -105,9 +105,9 @@ export function CutListWorkspace() {
     selectedIds,
     setSelectedId,
     removeModuleRecord,
-    setFormState,
     setImportState,
     setDetailState,
+    setCabinetFormState,
     query,
     setQuery,
   } = useAppState();
@@ -150,13 +150,6 @@ export function CutListWorkspace() {
             >
               Import
             </button>
-            <button
-              className="primary-button"
-              type="button"
-              onClick={() => setFormState({ moduleKey: "cutLists", mode: "create" })}
-            >
-              Create Cabinet
-            </button>
           </div>
         </div>
 
@@ -197,7 +190,15 @@ export function CutListWorkspace() {
             setSelectedId("cutLists", id);
             setDetailState({ moduleKey: "cutLists", recordId: id });
           }}
-          onEdit={(id) => setFormState({ moduleKey: "cutLists", mode: "edit", recordId: id })}
+          onEdit={(id) => {
+            const cutList = records.cutLists.find((entry) => entry.id === id);
+            const project = records.projects.find((entry) => entry.id === cutList?.projectId);
+            const areaId = cutList?.areaId || project?.areas[0]?.id || "";
+
+            if (cutList && areaId) {
+              setCabinetFormState({ projectId: cutList.projectId, areaId, recordId: cutList.id });
+            }
+          }}
           onDelete={(id) => removeModuleRecord("cutLists", id)}
         />
 

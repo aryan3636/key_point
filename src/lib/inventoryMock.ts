@@ -36,19 +36,35 @@ export type VendorRecord = {
   updatedAt: string;
 };
 
+export type ProjectAreaRecord = {
+  id: string;
+  areaName: string;
+  areaCode: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type ProjectRecord = {
   id: string;
   name: string;
   code: string;
+  customerName: string;
+  siteAddress: string;
+  projectDate: string;
+  preparedBy: string;
   status: string;
   location: string;
   budget: number;
+  notes: string;
+  areas: ProjectAreaRecord[];
   updatedAt: string;
 };
 
 export type CutListRecord = {
   id: string;
   projectId: string;
+  areaId: string;
   code: string;
   itemName: string;
   cabinetCategory: "Base" | "Upper" | "Tower / Tall" | "Open";
@@ -271,27 +287,71 @@ export function seedRecords(): RecordsState {
         id: "project-1",
         name: "North Tower Fitout",
         code: "NTF-24",
+        customerName: "Crescent Developments",
+        siteAddress: "Noida Sector 94, Tower A",
+        projectDate: "2026-04-06",
+        preparedBy: "Aarav Meena",
         status: "Active",
         location: "Noida Sector 94",
         budget: 4600000,
+        notes: "Lobby reception and admin office millwork package.",
+        areas: [
+          {
+            id: "area-1",
+            areaName: "Reception",
+            areaCode: "REC",
+            notes: "Front desk, printer counter, and upper storage run.",
+            createdAt: "2026-04-06T10:45:00.000Z",
+            updatedAt: "2026-04-06T10:45:00.000Z",
+          },
+          {
+            id: "area-2",
+            areaName: "Admin Pantry",
+            areaCode: "PAN",
+            notes: "Confirm appliance clearances before final issue.",
+            createdAt: "2026-04-06T10:45:00.000Z",
+            updatedAt: "2026-04-06T10:45:00.000Z",
+          },
+        ],
         updatedAt: "2026-04-06T10:45:00.000Z",
       },
       {
         id: "project-2",
         name: "Riverside Villas",
         code: "RSV-12",
+        customerName: "Riverside Estates",
+        siteAddress: "Gurugram Extension, Villa Cluster",
+        projectDate: "2026-04-05",
+        preparedBy: "Neha Chauhan",
         status: "Active",
         location: "Gurugram Extension",
         budget: 7200000,
+        notes: "Villa pantry and upper shelving scope.",
+        areas: [
+          {
+            id: "area-3",
+            areaName: "Villa Pantry",
+            areaCode: "VP",
+            notes: "Sink base and wall shelves.",
+            createdAt: "2026-04-05T16:20:00.000Z",
+            updatedAt: "2026-04-05T16:20:00.000Z",
+          },
+        ],
         updatedAt: "2026-04-05T16:20:00.000Z",
       },
       {
         id: "project-3",
         name: "Warehouse Retrofit",
         code: "WHR-08",
+        customerName: "Faridabad Logistics",
+        siteAddress: "Faridabad Yard, Warehouse 2",
+        projectDate: "2026-04-03",
+        preparedBy: "Imran Sheikh",
         status: "Planning",
         location: "Faridabad Yard",
         budget: 2150000,
+        notes: "Planning stage. Areas will be added after site measurement.",
+        areas: [],
         updatedAt: "2026-04-03T11:30:00.000Z",
       },
     ],
@@ -299,6 +359,7 @@ export function seedRecords(): RecordsState {
       {
         id: "cut-1",
         projectId: "project-1",
+        areaId: "area-1",
         code: "B1",
         itemName: "Reception base cabinet",
         cabinetCategory: "Base",
@@ -334,6 +395,7 @@ export function seedRecords(): RecordsState {
       {
         id: "cut-2",
         projectId: "project-1",
+        areaId: "area-1",
         code: "B2",
         itemName: "Printer cabinet with adjustable shelf",
         cabinetCategory: "Base",
@@ -369,6 +431,7 @@ export function seedRecords(): RecordsState {
       {
         id: "cut-3",
         projectId: "project-2",
+        areaId: "area-3",
         code: "B3",
         itemName: "Villa pantry sink base",
         cabinetCategory: "Base",
@@ -404,6 +467,7 @@ export function seedRecords(): RecordsState {
       {
         id: "cut-4",
         projectId: "project-1",
+        areaId: "area-1",
         code: "U1",
         itemName: "Reception upper cabinet with visible bottom",
         cabinetCategory: "Upper",
@@ -439,6 +503,7 @@ export function seedRecords(): RecordsState {
       {
         id: "cut-5",
         projectId: "project-2",
+        areaId: "area-3",
         code: "U2",
         itemName: "Villa upper shelves with light valance",
         cabinetCategory: "Upper",
@@ -474,6 +539,7 @@ export function seedRecords(): RecordsState {
       {
         id: "cut-6",
         projectId: "project-1",
+        areaId: "area-2",
         code: "B4",
         itemName: "Three drawer base cabinet",
         cabinetCategory: "Base",

@@ -10,7 +10,6 @@ export const navigationItems: Array<{
   { key: "items", label: "Items", blurb: "Stock, movement history, and issue flows" },
   { key: "vendors", label: "Vendors", blurb: "Supplier roster and details" },
   { key: "projects", label: "Projects", blurb: "Project tagging and material usage" },
-  { key: "cutLists", label: "Cut Lists", blurb: "Project cabinet rows and production batching" },
   { key: "workers", label: "Workers", blurb: "Assigned materials and returns" },
   // Locations is intentionally hidden for now. Uncomment after client confirmation.
   // { key: "locations", label: "Locations", blurb: "Storage points and capacity" },

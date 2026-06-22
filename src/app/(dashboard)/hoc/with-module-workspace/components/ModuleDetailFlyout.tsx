@@ -11,7 +11,7 @@ export function ModuleDetailFlyout() {
     records,
     setDetailState,
     setFormState,
-    setProjectCutListsState,
+    setCabinetFormState,
   } = useAppState();
 
   if (!detailState) {
@@ -33,14 +33,29 @@ export function ModuleDetailFlyout() {
         moduleKey={detailState.moduleKey}
         record={record as (Record<string, unknown> & { id: string }) | null}
         records={records}
-        onEdit={(id, targetModuleKey) =>
+        onEdit={(id, targetModuleKey) => {
+          if ((targetModuleKey ?? detailState.moduleKey) === "cutLists") {
+            const cutList = records.cutLists.find((entry) => entry.id === id);
+            const project = records.projects.find((entry) => entry.id === cutList?.projectId);
+            const areaId = cutList?.areaId || project?.areas[0]?.id || "";
+
+            if (cutList && areaId) {
+              setCabinetFormState({ projectId: cutList.projectId, areaId, recordId: cutList.id });
+              setDetailState(null);
+            }
+            return;
+          }
+
           setFormState({
             moduleKey: targetModuleKey ?? detailState.moduleKey,
             mode: "edit",
             recordId: id,
-          })
-        }
-        onOpenProjectCutLists={(projectId) => setProjectCutListsState({ projectId })}
+          });
+        }}
+        onOpenCabinetForm={(projectId, areaId, recordId) => {
+          setCabinetFormState({ projectId, areaId, recordId });
+          setDetailState(null);
+        }}
       />
     </BaseFlyout>
   );
