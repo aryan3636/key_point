@@ -2,11 +2,23 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import { useAppState } from "@/app/context/app-state-context";
-import { CutListRecord, makeId, ProjectAreaRecord, ProjectRecord } from "@/lib/inventoryMock";
-import { generateCabinetCutListRows } from "@/lib/cutListEngine";
+import {
+  CutListRecord,
+  generateProjectJobNumber,
+  makeId,
+  ProjectAreaRecord,
+  ProjectRecord,
+} from "@/lib/inventoryMock";
+import {
+  CutListPartRow,
+  generateAllCabinetRows,
+  generateCabinetCutListRows,
+  getGroupedProductionRows,
+  groupProductionRowsByFamily,
+} from "@/lib/cutListEngine";
 import { sortCutListsByCode } from "@/lib/cutListSort";
 
-type ProjectMode = "workspace" | "detail" | "form" | "areaDetail";
+type ProjectMode = "workspace" | "detail" | "form" | "areaDetail" | "cutlistDetail";
 function currency(value: number) {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
@@ -33,7 +45,17 @@ function ProjectFormPage({
   project?: ProjectRecord;
   onBack: (projectId?: string) => void;
 }) {
-  const { saveModuleRecord } = useAppState();
+  const { records, saveModuleRecord } = useAppState();
+  const [projectName, setProjectName] = useState(project?.name ?? "");
+  const [jobNumber, setJobNumber] = useState(project?.code ?? "");
+  const existingJobNumbers = records.projects
+    .filter((entry) => entry.id !== project?.id)
+    .map((entry) => entry.code);
+  const projectStatuses = ["Draft", "In Review", "Final", "Rework"];
+  const statusOptions =
+    project?.status && !projectStatuses.includes(project.status)
+      ? [project.status, ...projectStatuses]
+      : projectStatuses;
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -70,11 +92,30 @@ function ProjectFormPage({
             <div className="form-grid">
               <label className="field">
                 <span>Project Name</span>
-                <input name="name" defaultValue={project?.name ?? ""} required />
+                <input
+                  name="name"
+                  value={projectName}
+                  onChange={(event) => {
+                    const name = event.target.value;
+                    setProjectName(name);
+                    setJobNumber(
+                      name.trim()
+                        ? generateProjectJobNumber(name, existingJobNumbers)
+                        : ""
+                    );
+                  }}
+                  required
+                />
               </label>
               <label className="field">
                 <span>Job Number</span>
-                <input name="code" defaultValue={project?.code ?? ""} required />
+                <input
+                  name="code"
+                  placeholder="Job number"
+                  readOnly
+                  value={jobNumber}
+                  required
+                />
               </label>
               <label className="field">
                 <span>Customer Name</span>
@@ -82,8 +123,8 @@ function ProjectFormPage({
               </label>
               <label className="field">
                 <span>Status</span>
-                <select name="status" defaultValue={project?.status ?? "Planning"}>
-                  {["Planning", "Active", "Draft", "In Review", "Final", "Completed"].map((value) => (
+                <select name="status" defaultValue={project?.status ?? "Draft"}>
+                  {statusOptions.map((value) => (
                     <option key={value} value={value}>{value}</option>
                   ))}
                 </select>
@@ -97,20 +138,41 @@ function ProjectFormPage({
                 <input name="preparedBy" defaultValue={project?.preparedBy ?? ""} />
               </label>
               <label className="field">
-                <span>Location</span>
-                <input name="location" defaultValue={project?.location ?? ""} />
-              </label>
-              <label className="field">
                 <span>Budget</span>
                 <input name="budget" type="number" defaultValue={String(project?.budget ?? 0)} />
               </label>
               <label className="field field-full">
-                <span>Site / Address</span>
-                <input name="siteAddress" defaultValue={project?.siteAddress ?? project?.location ?? ""} />
-              </label>
-              <label className="field field-full">
                 <span>Notes</span>
                 <textarea name="notes" defaultValue={project?.notes ?? ""} rows={5} />
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset className="form-section">
+            <legend>Site / Address</legend>
+            <div className="form-grid">
+              <label className="field field-full">
+                <span>Address Line 1</span>
+                <input
+                  name="addressLine1"
+                  defaultValue={project?.addressLine1 ?? project?.siteAddress ?? project?.location ?? ""}
+                />
+              </label>
+              <label className="field field-full">
+                <span>Address Line 2</span>
+                <input name="addressLine2" defaultValue={project?.addressLine2 ?? ""} />
+              </label>
+              <label className="field">
+                <span>City</span>
+                <input name="city" defaultValue={project?.city ?? ""} />
+              </label>
+              <label className="field">
+                <span>State</span>
+                <input name="state" defaultValue={project?.state ?? ""} />
+              </label>
+              <label className="field">
+                <span>Zip Code</span>
+                <input name="zipCode" defaultValue={project?.zipCode ?? ""} />
               </label>
             </div>
           </fieldset>
@@ -270,7 +332,7 @@ function ProjectDetailPage({
                       </button>
                       <button
                         className="primary-button"
-                        onClick={() => setCabinetFormState({ projectId: project.id, areaId: area.id })}
+                        onClick={() => setCabinetFormState({ projectId: project.id, areaId: area.id, returnTab: "areas" })}
                         type="button"
                       >
                         + Add Cabinet / Item
@@ -308,10 +370,14 @@ function ProjectDetailPage({
 
 function CutListMiniTable({
   cutLists,
+  onDuplicateCabinet,
   onEditCabinet,
+  onOpenCutList,
 }: {
   cutLists: CutListRecord[];
+  onDuplicateCabinet: (cutList: CutListRecord) => void;
   onEditCabinet: (cutList: CutListRecord) => void;
+  onOpenCutList: (cutList: CutListRecord) => void;
 }) {
   const { records } = useAppState();
   const groups = records.projects.flatMap((project) =>
@@ -346,7 +412,13 @@ function CutListMiniTable({
               <span>Actions</span>
             </div>
             {group.cutLists.map((cutList) => (
-              <CutListRow cutList={cutList} key={cutList.id} onEditCabinet={onEditCabinet} />
+              <CutListRow
+                cutList={cutList}
+                key={cutList.id}
+                onDuplicateCabinet={onDuplicateCabinet}
+                onEditCabinet={onEditCabinet}
+                onOpenCutList={onOpenCutList}
+              />
             ))}
           </div>
         </section>
@@ -370,7 +442,13 @@ function CutListMiniTable({
               <span>Actions</span>
             </div>
             {unassignedCutLists.map((cutList) => (
-              <CutListRow cutList={cutList} key={cutList.id} onEditCabinet={onEditCabinet} />
+              <CutListRow
+                cutList={cutList}
+                key={cutList.id}
+                onDuplicateCabinet={onDuplicateCabinet}
+                onEditCabinet={onEditCabinet}
+                onOpenCutList={onOpenCutList}
+              />
             ))}
           </div>
         </section>
@@ -382,23 +460,55 @@ function CutListMiniTable({
 
 function CutListRow({
   cutList,
+  onDuplicateCabinet,
   onEditCabinet,
+  onOpenCutList,
 }: {
   cutList: CutListRecord;
+  onDuplicateCabinet: (cutList: CutListRecord) => void;
   onEditCabinet: (cutList: CutListRecord) => void;
+  onOpenCutList: (cutList: CutListRecord) => void;
 }) {
   const { records } = useAppState();
   const parts = generateCabinetCutListRows(cutList, records.projects);
 
   return (
-    <div className="table-row record-row cutlist-list-row">
+    <div
+      className="table-row record-row cutlist-list-row"
+      onClick={() => onOpenCutList(cutList)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpenCutList(cutList);
+        }
+      }}
+      role="button"
+      tabIndex={0}
+    >
       <span>{cutList.code}</span>
       <span>{cutList.itemName}</span>
       <span>{cutList.cabinetCategory} / {cutList.cabinetSubtype}</span>
       <span>{cutList.status}</span>
       <span>{parts.length}</span>
       <span className="row-actions">
-        <button className="table-action" onClick={() => onEditCabinet(cutList)} type="button">
+        <button
+          className="table-action"
+          onClick={(event) => {
+            event.stopPropagation();
+            onDuplicateCabinet(cutList);
+          }}
+          type="button"
+        >
+          Duplicate
+        </button>
+        <button
+          className="table-action"
+          onClick={(event) => {
+            event.stopPropagation();
+            onEditCabinet(cutList);
+          }}
+          type="button"
+        >
           Edit
         </button>
       </span>
@@ -412,6 +522,174 @@ function LabeledLine({ label, value }: { label: string; value: string }) {
       <span>{label}:</span>
       <strong>{value}</strong>
     </div>
+  );
+}
+
+function getPartSideLabel(partName: string) {
+  const normalized = partName.trim().toUpperCase();
+  if (normalized === "GABLES" || normalized === "GABLE") return "Gables - left/right side";
+  if (normalized === "BACK") return "Back panel";
+  if (normalized === "BACK RAIL") return "Back rails";
+  if (normalized === "BOTTOM") return "Bottom panel";
+  if (normalized === "TOP & BOTTOM") return "Top and bottom panels";
+  if (normalized.includes("STRETCHER")) return "Stretchers";
+  if (normalized.includes("SHELF")) return partName;
+  if (normalized.includes("DRAWER") && normalized.includes("SIDE")) return "Drawer sides";
+  if (normalized.includes("DRAWER") && normalized.includes("BOTTOM")) return "Drawer bottoms";
+  if (normalized.includes("DRAWER") && normalized.includes("FRONT & BACK")) return "Drawer front/back";
+  return partName;
+}
+
+function CalculatedCutListTable({ cutList }: { cutList: CutListRecord }) {
+  const { records } = useAppState();
+  const rows = generateCabinetCutListRows(cutList, records.projects);
+
+  return rows.length > 0 ? (
+    <div className="table-shell compact-table">
+      <div className="table-header table-row cutlist-preview-row">
+        <span>Part / Side</span>
+        <span>Qty</span>
+        <span>Width</span>
+        <span>Height / Depth</span>
+        <span>Thick</span>
+        <span>Material</span>
+        <span>Edge Banding</span>
+        <span>Finish / Notes</span>
+      </div>
+      {rows.map((row, index) => (
+        <div className="table-row cutlist-preview-row" key={`${row.partName}-${row.width}-${row.heightDepth}-${index}`}>
+          <span>
+            <strong>{getPartSideLabel(row.partName)}</strong>
+            <small>{row.partName}</small>
+          </span>
+          <span>{row.quantity}</span>
+          <span>{row.width}</span>
+          <span>{row.heightDepth}</span>
+          <span>{row.thickness}</span>
+          <span>{row.material}</span>
+          <span>{row.edgeBanding}</span>
+          <span>{[row.finish, row.notes].filter((value) => value && value !== "-").join(" / ") || "-"}</span>
+        </div>
+      ))}
+    </div>
+  ) : (
+    <div className="empty-state">
+      No calculated cutlist rows yet. Check dimensions, material thickness, and formula support for this category.
+    </div>
+  );
+}
+
+function ProductionRowsTable({ rows }: { rows: CutListPartRow[] }) {
+  return (
+    <div className="table-shell compact-table">
+      <div className="table-header table-row cutlist-preview-row">
+        <span>Part / Side</span>
+        <span>Qty</span>
+        <span>Width</span>
+        <span>Height / Depth</span>
+        <span>Thick</span>
+        <span>Material</span>
+        <span>Edge Banding</span>
+        <span>Source / Notes</span>
+      </div>
+      {rows.map((row, index) => (
+        <div className="table-row cutlist-preview-row" key={`${row.partName}-${row.width}-${row.heightDepth}-${index}`}>
+          <span>
+            <strong>{getPartSideLabel(row.partName)}</strong>
+            <small>{row.partName}</small>
+          </span>
+          <span>{row.quantity}</span>
+          <span>{row.width}</span>
+          <span>{row.heightDepth}</span>
+          <span>{row.thickness}</span>
+          <span>{row.material}</span>
+          <span>{row.edgeBanding}</span>
+          <span>{[row.sourceItems ?? row.code, row.notes].filter((value) => value && value !== "-").join(" / ") || "-"}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ProductionBatchView({ cutLists }: { cutLists: CutListRecord[] }) {
+  const { records } = useAppState();
+  const cabinetRows = generateAllCabinetRows(cutLists, records.projects);
+  const productionRows = getGroupedProductionRows(cabinetRows);
+  const productionFamilies = groupProductionRowsByFamily(productionRows);
+
+  return (
+    <div className="cutlist-group-stack">
+      {productionFamilies.map((group) => (
+        <section className="detail-section" key={group.familyName}>
+          <h3>
+            {group.familyName} <span className="section-count">Total qty: {group.totalQuantity}</span>
+          </h3>
+          <ProductionRowsTable rows={group.rows} />
+        </section>
+      ))}
+      {productionFamilies.length === 0 && (
+        <div className="empty-state">Create a cabinet row to generate a production batch.</div>
+      )}
+    </div>
+  );
+}
+
+function CutListDetailPage({
+  cutList,
+  onBack,
+  onEdit,
+}: {
+  cutList: CutListRecord;
+  onBack: () => void;
+  onEdit: () => void;
+}) {
+  const { records } = useAppState();
+  const project = records.projects.find((entry) => entry.id === cutList.projectId);
+  const area = project?.areas.find((entry) => entry.id === cutList.areaId);
+  const rows = generateCabinetCutListRows(cutList, records.projects);
+
+  return (
+    <section className="workspace-grid single-column">
+      <div className="panel">
+        <div className="panel-header">
+          <div>
+            <p className="eyebrow">{project?.name ?? "No project"} / {area?.areaName ?? "No area"}</p>
+            <h2>{cutList.code}</h2>
+            <p>{cutList.itemName || "Cabinet item"}</p>
+          </div>
+          <div className="header-actions">
+            <button className="secondary-button" onClick={onBack} type="button">Back to Cut Lists</button>
+            <button className="primary-button" onClick={onEdit} type="button">Edit Cabinet</button>
+          </div>
+        </div>
+
+        <div className="detail-grid">
+          <article className="info-card"><small>Category</small><strong>{cutList.cabinetCategory}</strong></article>
+          <article className="info-card"><small>Subtype</small><strong>{cutList.cabinetSubtype}</strong></article>
+          <article className="info-card"><small>Quantity</small><strong>{cutList.quantity}</strong></article>
+          <article className="info-card"><small>Calculated parts</small><strong>{rows.length}</strong></article>
+        </div>
+
+        <section className="detail-section">
+          <h3>Cabinet Details</h3>
+          <div className="labeled-stack">
+            <LabeledLine label="Project" value={project?.name ?? "-"} />
+            <LabeledLine label="Area" value={area?.areaName ?? "-"} />
+            <LabeledLine label="Dimensions" value={`${cutList.width} x ${cutList.height} x ${cutList.depth} in`} />
+            <LabeledLine label="Material" value={cutList.interiorMaterial} />
+            <LabeledLine label="Door thickness" value={`${cutList.doorThickness} in`} />
+            <LabeledLine label="Bumper allowance" value={`${cutList.bumperAllowance} in`} />
+            <LabeledLine label="Finished sides" value={cutList.finishedSides} />
+            <LabeledLine label="Notes" value={cutList.notes || "-"} />
+          </div>
+        </section>
+
+        <section className="detail-section">
+          <h3>Calculated Cutlist</h3>
+          <CalculatedCutListTable cutList={cutList} />
+        </section>
+      </div>
+    </section>
   );
 }
 
@@ -479,11 +757,13 @@ function AreaDetailPage({
   project,
   area,
   onBack,
+  onOpenCutList,
   onViewCutlists,
 }: {
   project: ProjectRecord;
   area: ProjectAreaRecord;
   onBack: () => void;
+  onOpenCutList: (cutList: CutListRecord) => void;
   onViewCutlists: () => void;
 }) {
   const { records, setCabinetFormState } = useAppState();
@@ -507,7 +787,7 @@ function AreaDetailPage({
             </button>
             <button
               className="primary-button"
-              onClick={() => setCabinetFormState({ projectId: project.id, areaId: area.id })}
+              onClick={() => setCabinetFormState({ projectId: project.id, areaId: area.id, returnTab: "areas" })}
               type="button"
             >
               + Add Cabinet / Item
@@ -522,7 +802,26 @@ function AreaDetailPage({
         </div>
         <section className="detail-section">
           <h3>Cabinets and Cutlists</h3>
-          <CutListMiniTable cutLists={areaCutLists} onEditCabinet={(cutList) => setCabinetFormState({ projectId: project.id, areaId: area.id, recordId: cutList.id })} />
+          <CutListMiniTable
+            cutLists={areaCutLists}
+            onDuplicateCabinet={(cutList) =>
+              setCabinetFormState({
+                projectId: project.id,
+                areaId: area.id,
+                duplicateFromId: cutList.id,
+                returnTab: "areas",
+              })
+            }
+            onEditCabinet={(cutList) =>
+              setCabinetFormState({
+                projectId: project.id,
+                areaId: area.id,
+                recordId: cutList.id,
+                returnTab: "areas",
+              })
+            }
+            onOpenCutList={onOpenCutList}
+          />
         </section>
       </div>
     </section>
@@ -541,11 +840,14 @@ export function ProjectWorkspace() {
   const [mode, setMode] = useState<ProjectMode>("workspace");
   const [selectedProjectId, setSelectedProjectId] = useState(records.projects[0]?.id ?? "");
   const [selectedAreaId, setSelectedAreaId] = useState("");
+  const [selectedCutListId, setSelectedCutListId] = useState("");
   const [projectFilter, setProjectFilter] = useState("");
   const [areaFilter, setAreaFilter] = useState("");
+  const [cutListViewMode, setCutListViewMode] = useState<"cabinet" | "production">("cabinet");
 
   const selectedProject = records.projects.find((project) => project.id === selectedProjectId);
   const selectedArea = selectedProject?.areas.find((area) => area.id === selectedAreaId);
+  const selectedCutList = records.cutLists.find((cutList) => cutList.id === selectedCutListId);
   const filteredProjects = projectFilter
     ? records.projects.filter((project) => project.id === projectFilter)
     : records.projects;
@@ -580,6 +882,18 @@ export function ProjectWorkspace() {
       return JSON.stringify(cutList).toLowerCase().includes(query.toLowerCase());
     })
   );
+  const workspaceTitle =
+    projectWorkspaceTab === "projects"
+      ? "Projects"
+      : projectWorkspaceTab === "areas"
+        ? "Areas"
+        : "Cut Lists";
+  const workspaceDescription =
+    projectWorkspaceTab === "projects"
+      ? "Browse projects and open project details."
+      : projectWorkspaceTab === "areas"
+        ? "Browse area information, filtered by project."
+        : "Review area-wise cabinet cutlists and production batches.";
 
   const openProjectDetail = (projectId: string) => {
     setSelectedProjectId(projectId);
@@ -591,8 +905,30 @@ export function ProjectWorkspace() {
     const areaId = cutList.areaId || project?.areas[0]?.id || "";
 
     if (areaId) {
-      setCabinetFormState({ projectId: cutList.projectId, areaId, recordId: cutList.id });
+      setCabinetFormState({ projectId: cutList.projectId, areaId, recordId: cutList.id, returnTab: "cutlists" });
     }
+  };
+
+  const duplicateCabinet = (cutList: CutListRecord) => {
+    const project = records.projects.find((entry) => entry.id === cutList.projectId);
+    const areaId = cutList.areaId || project?.areas[0]?.id || "";
+
+    if (areaId) {
+      setCabinetFormState({
+        projectId: cutList.projectId,
+        areaId,
+        duplicateFromId: cutList.id,
+        returnTab: "cutlists",
+      });
+    }
+  };
+
+  const openCutListDetail = (cutList: CutListRecord) => {
+    const project = records.projects.find((entry) => entry.id === cutList.projectId);
+    setSelectedProjectId(cutList.projectId);
+    setSelectedAreaId(cutList.areaId || project?.areas[0]?.id || "");
+    setSelectedCutListId(cutList.id);
+    setMode("cutlistDetail");
   };
 
   if (mode === "form") {
@@ -631,7 +967,11 @@ export function ProjectWorkspace() {
     return (
       <AreaDetailPage
         area={selectedArea}
-        onBack={() => setMode("workspace")}
+        onBack={() => {
+          setProjectWorkspaceTab("areas");
+          setMode("workspace");
+        }}
+        onOpenCutList={openCutListDetail}
         onViewCutlists={() => {
           setProjectFilter(selectedProject.id);
           setAreaFilter(selectedArea.id);
@@ -643,35 +983,44 @@ export function ProjectWorkspace() {
     );
   }
 
+  if (mode === "cutlistDetail" && selectedCutList) {
+    return (
+      <CutListDetailPage
+        cutList={selectedCutList}
+        onBack={() => {
+          setProjectWorkspaceTab("cutlists");
+          setMode("workspace");
+        }}
+        onEdit={() => editCabinet(selectedCutList)}
+      />
+    );
+  }
+
   return (
     <section className="workspace-grid single-column">
       <div className="panel">
         <div className="panel-header">
           <div>
-            <h2>Projects</h2>
-            <p>
-              {projectWorkspaceTab === "projects"
-                ? "Browse projects and open project details."
-                : projectWorkspaceTab === "areas"
-                  ? "Browse area information, filtered by project."
-                  : "Review area-wise cabinet cutlists."}
-            </p>
+            <h2>{workspaceTitle}</h2>
+            <p>{workspaceDescription}</p>
           </div>
-          <div className="header-actions">
-            <button className="secondary-button" onClick={() => setImportState({ moduleKey: "projects" })} type="button">
-              Import
-            </button>
-            <button
-              className="primary-button"
-              onClick={() => {
-                setSelectedProjectId("");
-                setMode("form");
-              }}
-              type="button"
-            >
-              Create Project
-            </button>
-          </div>
+          {projectWorkspaceTab === "projects" && (
+            <div className="header-actions">
+              <button className="secondary-button" onClick={() => setImportState({ moduleKey: "projects" })} type="button">
+                Import
+              </button>
+              <button
+                className="primary-button"
+                onClick={() => {
+                  setSelectedProjectId("");
+                  setMode("form");
+                }}
+                type="button"
+              >
+                Create Project
+              </button>
+            </div>
+          )}
         </div>
 
         {projectWorkspaceTab === "projects" && (
@@ -768,7 +1117,42 @@ export function ProjectWorkspace() {
                   ))}
               </select>
             </div>
-            <CutListMiniTable cutLists={cutLists} onEditCabinet={editCabinet} />
+            <div className="cutlist-reveal-bar">
+              <div>
+                <h3>{cutListViewMode === "cabinet" ? "Cabinet Cut List" : "Production Batch"}</h3>
+                <p>
+                  {cutListViewMode === "cabinet"
+                    ? "Cabinet rows grouped area-wise."
+                    : "Matching parts grouped across cabinets for shop production."}
+                </p>
+              </div>
+              <div className="segmented-control">
+                <button
+                  className={cutListViewMode === "cabinet" ? "is-active" : ""}
+                  onClick={() => setCutListViewMode("cabinet")}
+                  type="button"
+                >
+                  Cabinet
+                </button>
+                <button
+                  className={cutListViewMode === "production" ? "is-active" : ""}
+                  onClick={() => setCutListViewMode("production")}
+                  type="button"
+                >
+                  Production
+                </button>
+              </div>
+            </div>
+            {cutListViewMode === "cabinet" ? (
+              <CutListMiniTable
+                cutLists={cutLists}
+                onDuplicateCabinet={duplicateCabinet}
+                onEditCabinet={editCabinet}
+                onOpenCutList={openCutListDetail}
+              />
+            ) : (
+              <ProductionBatchView cutLists={cutLists} />
+            )}
           </>
         )}
       </div>

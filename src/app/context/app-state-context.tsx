@@ -4,7 +4,10 @@ import {
   AUTH_KEY,
   AuthUser,
   CutListRecord,
+  generateNextCabinetCode,
   generateNextNumber,
+  generateProjectJobNumber,
+  getCabinetCodePrefix,
   generateSku,
   ItemRecord,
   LocationRecord,
@@ -66,6 +69,8 @@ export type CabinetFormState = {
   projectId: string;
   areaId: string;
   recordId?: string;
+  duplicateFromId?: string;
+  returnTab?: ProjectWorkspaceTab;
 };
 
 export type ProjectWorkspaceTab = "projects" | "areas" | "cutlists";
@@ -210,12 +215,19 @@ function normalizeStoredProjectArea(record: Partial<ProjectAreaRecord>): Project
 }
 
 function normalizeStoredProject(record: Partial<ProjectRecord>): ProjectRecord {
+  const siteAddress = record.siteAddress || record.location || "";
+
   return {
     id: record.id || makeId("pro"),
     name: record.name || "",
     code: record.code || "",
     customerName: record.customerName || "",
-    siteAddress: record.siteAddress || record.location || "",
+    siteAddress,
+    addressLine1: record.addressLine1 || siteAddress,
+    addressLine2: record.addressLine2 || "",
+    city: record.city || "",
+    state: record.state || "",
+    zipCode: record.zipCode || "",
     projectDate: record.projectDate || "",
     preparedBy: record.preparedBy || "",
     status: record.status || "Planning",
@@ -525,16 +537,38 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       }
 
       if (moduleKey === "projects") {
+        const name = text("name");
+        const siteAddress = [
+          text("addressLine1"),
+          text("addressLine2"),
+          text("city"),
+          text("state"),
+          text("zipCode"),
+        ]
+          .filter(Boolean)
+          .join(", ");
         const record: ProjectRecord = {
           id,
-          name: text("name"),
-          code: text("code"),
+          name,
+          code:
+            text("code") ||
+            generateProjectJobNumber(
+              name,
+              current.projects
+                .filter((project) => project.id !== id)
+                .map((project) => project.code)
+            ),
           customerName: text("customerName"),
-          siteAddress: text("siteAddress"),
+          siteAddress,
+          addressLine1: text("addressLine1"),
+          addressLine2: text("addressLine2"),
+          city: text("city"),
+          state: text("state"),
+          zipCode: text("zipCode"),
           projectDate: text("projectDate"),
           preparedBy: text("preparedBy"),
           status: text("status"),
-          location: text("location") || text("siteAddress"),
+          location: siteAddress,
           budget: number("budget"),
           notes: text("notes"),
           areas: parseProjectAreas(text("areasJson"), now),
@@ -550,6 +584,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       if (moduleKey === "cutLists") {
         const cabinetCategory = (text("cabinetCategory") || "Base") as CutListRecord["cabinetCategory"];
         const cabinetSubtype = (text("cabinetSubtype") || "Standard") as CutListRecord["cabinetSubtype"];
+        const codePrefix = getCabinetCodePrefix(cabinetCategory, cabinetSubtype);
         const inputUnit = normalizeInputUnit(text("inputUnit"));
         const rawMaterial = {
           interiorMaterial: text("interiorMaterial"),
@@ -564,9 +599,11 @@ export function AppStateProvider({ children }: PropsWithChildren) {
           areaId: text("areaId"),
           code:
             text("code") ||
-            generateNextNumber(
-              "CUT",
-              current.cutLists.map((cutList) => cutList.code)
+            generateNextCabinetCode(
+              codePrefix,
+              current.cutLists
+                .filter((cutList) => cutList.id !== id)
+                .map((cutList) => cutList.code)
             ),
           itemName: text("itemName"),
           cabinetCategory,
@@ -796,21 +833,44 @@ export function AppStateProvider({ children }: PropsWithChildren) {
 
       if (moduleKey === "projects") {
         next.projects = sortByUpdatedAt([
-          ...rows.map((row, index) => ({
-            id: makeId("pro"),
-            name: row.name || row.projectName || `Imported Project ${index + 1}`,
-            code: row.code || row.jobNumber || `IMP-${index + 10}`,
-            customerName: row.customerName || "",
-            siteAddress: row.siteAddress || row.location || "",
-            projectDate: row.projectDate || row.date || "",
-            preparedBy: row.preparedBy || "",
-            status: row.status || "Planning",
-            location: row.location || row.siteAddress || "Imported Location",
-            budget: Number(row.budget || 1000000 * (index + 1)),
-            notes: row.notes || "",
-            areas: [],
-            updatedAt: now,
-          })),
+          ...rows.map((row, index) => {
+            const name = row.name || row.projectName || `Imported Project ${index + 1}`;
+            const addressLine1 = row.addressLine1 || row.siteAddress || row.location || "";
+            const addressLine2 = row.addressLine2 || "";
+            const city = row.city || "";
+            const state = row.state || "";
+            const zipCode = row.zipCode || "";
+            const siteAddress = [addressLine1, addressLine2, city, state, zipCode]
+              .filter(Boolean)
+              .join(", ");
+
+            return {
+              id: makeId("pro"),
+              name,
+              code:
+                row.code ||
+                row.jobNumber ||
+                generateProjectJobNumber(
+                  name,
+                  current.projects.map((project) => project.code)
+              ),
+              customerName: row.customerName || "",
+              siteAddress,
+              addressLine1,
+              addressLine2,
+              city,
+              state,
+              zipCode,
+              projectDate: row.projectDate || row.date || "",
+              preparedBy: row.preparedBy || "",
+              status: row.status || "Draft",
+              location: siteAddress,
+              budget: Number(row.budget || 1000000 * (index + 1)),
+              notes: row.notes || "",
+              areas: [],
+              updatedAt: now,
+            };
+          }),
           ...current.projects,
         ]);
       }
@@ -820,6 +880,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
           ...rows.map((row, index) => {
             const cabinetCategory = (row.cabinetCategory || "Base") as CutListRecord["cabinetCategory"];
             const cabinetSubtype = (row.cabinetSubtype || "Standard") as CutListRecord["cabinetSubtype"];
+            const codePrefix = getCabinetCodePrefix(cabinetCategory, cabinetSubtype);
             const inputUnit = normalizeInputUnit(row.inputUnit || row.measurementUnit || "in");
             const rawMaterial = {
               interiorMaterial: row.interiorMaterial || "5/8 White Melamine",
@@ -836,7 +897,12 @@ export function AppStateProvider({ children }: PropsWithChildren) {
                 current.projects[0]?.id ??
                 "",
               areaId: row.areaId || "",
-              code: row.code || `B${current.cutLists.length + index + 1}`,
+              code:
+                row.code ||
+                generateNextCabinetCode(
+                  codePrefix,
+                  current.cutLists.map((cutList) => cutList.code)
+                ),
               itemName: row.itemName || `Imported Cabinet ${index + 1}`,
               cabinetCategory,
               cabinetSubtype,

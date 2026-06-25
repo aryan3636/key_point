@@ -6,12 +6,20 @@ import { useAppState } from "@/app/context/app-state-context";
 export function Topbar() {
   const {
     activeModule,
+    projectWorkspaceTab,
     setTheme,
     theme,
     setUser,
     user,
   } = useAppState();
-  const activeLabel = navigationItems.find((item) => item.key === activeModule)?.label;
+  const activeLabel =
+    activeModule === "projects"
+      ? projectWorkspaceTab === "areas"
+        ? "Areas"
+        : projectWorkspaceTab === "cutlists"
+          ? "Cut Lists"
+          : "Projects"
+      : navigationItems.find((item) => item.key === activeModule)?.label;
 
   return (
     <header className="topbar">

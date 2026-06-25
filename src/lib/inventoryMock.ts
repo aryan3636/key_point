@@ -51,6 +51,11 @@ export type ProjectRecord = {
   code: string;
   customerName: string;
   siteAddress: string;
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  state: string;
+  zipCode: string;
   projectDate: string;
   preparedBy: string;
   status: string;
@@ -233,6 +238,51 @@ export function generateNextNumber(prefix: string, values: string[]) {
   return `${prefix}-${String(max + 1).padStart(3, "0")}`;
 }
 
+export function generateProjectJobNumber(projectName: string, existingCodes: string[]) {
+  const initials = projectName
+    .trim()
+    .split(/\s+/)
+    .map((part) => part.replace(/[^a-z0-9]/gi, "").charAt(0))
+    .join("")
+    .toUpperCase();
+  const prefix = initials || "PRJ";
+  const matcher = new RegExp(`^${prefix}-(\\d+)$`, "i");
+  const max = existingCodes.reduce((highest, code) => {
+    const match = code.match(matcher);
+    return match ? Math.max(highest, Number(match[1])) : highest;
+  }, 0);
+
+  return `${prefix}-${String(max + 1).padStart(3, "0")}`;
+}
+
+export function getCabinetCodePrefix(
+  category: CutListRecord["cabinetCategory"],
+  subtype: CutListRecord["cabinetSubtype"]
+) {
+  if (category === "Base") {
+    if (subtype === "Shelves") return "BS";
+    if (subtype === "Drawer") return "BD";
+    if (subtype === "Sink") return "BSK";
+    return "B";
+  }
+  if (category === "Upper") {
+    return subtype === "Shelves" ? "US" : "U";
+  }
+  if (category === "Tower / Tall") return "T";
+  if (category === "Open") return "O";
+  return "CAB";
+}
+
+export function generateNextCabinetCode(prefix: string, existingCodes: string[]) {
+  const matcher = new RegExp(`^${prefix}-?(\\d+)$`, "i");
+  const max = existingCodes.reduce((highest, code) => {
+    const match = code.match(matcher);
+    return match ? Math.max(highest, Number(match[1])) : highest;
+  }, 0);
+
+  return `${prefix}-${String(max + 1).padStart(3, "0")}`;
+}
+
 export function generateSku(category: string, existingSkus: string[]) {
   const prefix = getSkuPrefix(category);
   const max = existingSkus.reduce((highest, sku) => {
@@ -289,6 +339,11 @@ export function seedRecords(): RecordsState {
         code: "NTF-24",
         customerName: "Crescent Developments",
         siteAddress: "Noida Sector 94, Tower A",
+        addressLine1: "Tower A",
+        addressLine2: "Noida Sector 94",
+        city: "Noida",
+        state: "Uttar Pradesh",
+        zipCode: "",
         projectDate: "2026-04-06",
         preparedBy: "Aarav Meena",
         status: "Active",
@@ -321,6 +376,11 @@ export function seedRecords(): RecordsState {
         code: "RSV-12",
         customerName: "Riverside Estates",
         siteAddress: "Gurugram Extension, Villa Cluster",
+        addressLine1: "Villa Cluster",
+        addressLine2: "Gurugram Extension",
+        city: "Gurugram",
+        state: "Haryana",
+        zipCode: "",
         projectDate: "2026-04-05",
         preparedBy: "Neha Chauhan",
         status: "Active",
@@ -345,6 +405,11 @@ export function seedRecords(): RecordsState {
         code: "WHR-08",
         customerName: "Faridabad Logistics",
         siteAddress: "Faridabad Yard, Warehouse 2",
+        addressLine1: "Warehouse 2",
+        addressLine2: "Faridabad Yard",
+        city: "Faridabad",
+        state: "Haryana",
+        zipCode: "",
         projectDate: "2026-04-03",
         preparedBy: "Imran Sheikh",
         status: "Planning",

@@ -442,6 +442,13 @@ button {
   background: rgba(10, 15, 17, 0.5);
 }
 
+.field input[readonly],
+.field textarea[readonly] {
+  cursor: not-allowed;
+  background: color-mix(in srgb, var(--panel-strong) 84%, transparent);
+  color: var(--muted);
+}
+
 .primary-button,
 .secondary-button,
 .text-button,
@@ -607,6 +614,26 @@ button {
 .cutlist-row.with-source {
   grid-template-columns: 1.05fr 70px 1.2fr 0.95fr 80px 1.25fr 1fr;
   min-width: 1080px;
+}
+
+.cutlist-preview-section {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.cutlist-preview-row {
+  grid-template-columns: 1.45fr 70px 0.8fr 0.9fr 70px 1.05fr 0.9fr 1.05fr;
+  min-width: 1120px;
+}
+
+.cutlist-preview-row span {
+  display: grid;
+  gap: 0.16rem;
+}
+
+.cutlist-preview-row small {
+  color: var(--muted);
+  font-size: 0.75rem;
 }
 
 .cutlist-group-stack {

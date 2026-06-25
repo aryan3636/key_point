@@ -15,9 +15,20 @@ import { ProjectCutListsModal } from "@/app/(dashboard)/projects/components/Proj
 import { CabinetFormPage } from "@/app/(dashboard)/projects/components/CabinetFormPage";
 import { ProjectWorkspace } from "@/app/(dashboard)/projects/components/ProjectWorkspace";
 import { useAppState } from "@/app/context/app-state-context";
+import { useEffect, useState } from "react";
 
 export function DashboardShell() {
   const { user, activeModule, formState, importState, cabinetFormState } = useAppState();
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setIsMounted(true), 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  if (!isMounted) {
+    return null;
+  }
 
   if (!user) {
     return <LoginScreen />;

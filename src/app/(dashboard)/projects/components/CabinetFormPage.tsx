@@ -1,8 +1,13 @@
 "use client";
 
-import { FormEvent, ReactNode, useMemo, useState } from "react";
+import { FormEvent, ReactNode, useState } from "react";
 import { useAppState } from "@/app/context/app-state-context";
-import { CutListRecord, generateNextNumber } from "@/lib/inventoryMock";
+import { CutListPartRow, generateCabinetCutListRows } from "@/lib/cutListEngine";
+import {
+  CutListRecord,
+  generateNextCabinetCode,
+  getCabinetCodePrefix,
+} from "@/lib/inventoryMock";
 
 const baseSubtypes: CutListRecord["cabinetSubtype"][] = ["Standard", "Shelves", "Drawer", "Sink"];
 const upperSubtypes: CutListRecord["cabinetSubtype"][] = ["Standard", "Shelves"];
@@ -68,13 +73,86 @@ function getCabinetUse(
   return "standardBaseCabinet";
 }
 
-function formatNumber(value: number) {
-  return Number.isFinite(value) ? String(value).replace(/\.?0+$/, "") : "";
+function toInches(value: string, unit: CutListRecord["inputUnit"]) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) {
+    return 0;
+  }
+  return unit === "mm" ? number / 25.4 : number;
 }
 
-function makeDefaults(record: CutListRecord | undefined, nextCode: string): CabinetFormValues {
+function parseDrawerHeights(values: string[], unit: CutListRecord["inputUnit"]) {
+  return values
+    .map((height) => toInches(height, unit))
+    .filter((height) => height > 0);
+}
+
+function materialName(values: CabinetFormValues) {
+  return values.interiorMaterial === "Custom"
+    ? values.customMaterialName || "Custom"
+    : values.interiorMaterial;
+}
+
+function makePreviewCutListRecord({
+  areaId,
+  projectId,
+  values,
+  subtype,
+}: {
+  areaId: string;
+  projectId: string;
+  values: CabinetFormValues;
+  subtype: CutListRecord["cabinetSubtype"];
+}): CutListRecord {
+  const isCustomMaterial = values.interiorMaterial === "Custom";
+
   return {
-    code: record?.code ?? nextCode,
+    id: "preview-cabinet",
+    projectId,
+    areaId,
+    code: values.code,
+    itemName: values.itemName,
+    cabinetCategory: values.cabinetCategory,
+    cabinetSubtype: subtype,
+    cabinetUse: getCabinetUse(values.cabinetCategory, subtype),
+    inputUnit: values.inputUnit,
+    width: toInches(values.width, values.inputUnit),
+    height: toInches(values.height, values.inputUnit),
+    depth: toInches(values.depth, values.inputUnit),
+    quantity: Number(values.quantity) || 1,
+    interiorMaterial: materialName(values),
+    customMaterialName: isCustomMaterial ? values.customMaterialName : "",
+    customMaterialThickness: isCustomMaterial
+      ? toInches(values.customMaterialThickness, values.inputUnit)
+      : 0,
+    materialThickness: toInches(values.materialThickness, values.inputUnit) || 0.625,
+    doorThickness: toInches(values.doorThickness, values.inputUnit) || 0.75,
+    bumperAllowance: toInches(values.bumperAllowance, values.inputUnit) || 0.125,
+    finishedSides: values.cabinetCategory === "Upper" ? "Front" : values.finishedSides,
+    upperBottomCondition: values.upperBottomCondition,
+    finishedMaterialThicknessM2: toInches(values.finishedMaterialThicknessM2, values.inputUnit),
+    lightValanceHeight: toInches(values.lightValanceHeight, values.inputUnit),
+    backOption: values.backOption,
+    shelfQty: Number(values.shelfQty) || 0,
+    shelfType: values.shelfType,
+    shelfFinish: values.shelfFinish,
+    slideType: values.slideType,
+    slideLength: toInches(values.slideLength, values.inputUnit),
+    drawerQty: Number(values.drawerQty) || 0,
+    drawerHeights: parseDrawerHeights(values.drawerHeights, values.inputUnit),
+    status: values.status,
+    notes: values.notes,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function makeDefaults(
+  record: CutListRecord | undefined,
+  nextCode: string,
+  preserveCode = true
+): CabinetFormValues {
+  return {
+    code: preserveCode && record?.code ? record.code : nextCode,
     itemName: record?.itemName ?? "",
     cabinetCategory: record?.cabinetCategory ?? "Base",
     cabinetSubtype: record?.cabinetSubtype ?? "Standard",
@@ -128,6 +206,133 @@ function Field({
   );
 }
 
+function getPartSideLabel(partName: string) {
+  const normalized = partName.trim().toUpperCase();
+  if (normalized === "GABLES" || normalized === "GABLE") {
+    return "Gables - left/right side";
+  }
+  if (normalized === "BACK") {
+    return "Back panel";
+  }
+  if (normalized === "BACK RAIL") {
+    return "Back rails";
+  }
+  if (normalized === "BOTTOM") {
+    return "Bottom panel";
+  }
+  if (normalized === "TOP & BOTTOM") {
+    return "Top and bottom panels";
+  }
+  if (normalized.includes("STRETCHER")) {
+    return "Stretchers";
+  }
+  if (normalized.includes("SHELF")) {
+    return partName;
+  }
+  if (normalized.includes("DRAWER") && normalized.includes("SIDE")) {
+    return "Drawer sides";
+  }
+  if (normalized.includes("DRAWER") && normalized.includes("BOTTOM")) {
+    return "Drawer bottoms";
+  }
+  if (normalized.includes("DRAWER") && normalized.includes("FRONT & BACK")) {
+    return "Drawer front/back";
+  }
+  return partName;
+}
+
+function CutListInformation({ rows }: { rows: CutListPartRow[] }) {
+  return (
+    <section className="cutlist-preview-section">
+      <div className="section-header">
+        <div>
+          <h3>Cutlist Information</h3>
+          <p>{rows.length} generated part rows, shown side-wise by cabinet part.</p>
+        </div>
+      </div>
+      {rows.length > 0 ? (
+        <div className="table-shell compact-table">
+          <div className="table-header table-row cutlist-preview-row">
+            <span>Part / Side</span>
+            <span>Qty</span>
+            <span>Width</span>
+            <span>Height / Depth</span>
+            <span>Thick</span>
+            <span>Material</span>
+            <span>Edge Banding</span>
+            <span>Finish / Notes</span>
+          </div>
+          {rows.map((row, index) => (
+            <div
+              className="table-row cutlist-preview-row"
+              key={`${row.partName}-${row.width}-${row.heightDepth}-${index}`}
+            >
+              <span>
+                <strong>{getPartSideLabel(row.partName)}</strong>
+                <small>{row.partName}</small>
+              </span>
+              <span>{row.quantity}</span>
+              <span>{row.width}</span>
+              <span>{row.heightDepth}</span>
+              <span>{row.thickness}</span>
+              <span>{row.material}</span>
+              <span>{row.edgeBanding}</span>
+              <span>{[row.finish, row.notes].filter((value) => value && value !== "-").join(" / ") || "-"}</span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="empty-state">
+          No cutlist parts generated yet. Enter width, height, depth, material thickness, and a supported category/subtype.
+        </div>
+      )}
+    </section>
+  );
+}
+
+function CabinetPreview({
+  cutListRows,
+  projectName,
+  areaName,
+  values,
+  subtype,
+}: {
+  cutListRows: CutListPartRow[];
+  projectName: string;
+  areaName: string;
+  values: CabinetFormValues;
+  subtype: CutListRecord["cabinetSubtype"];
+}) {
+  const previewRows = [
+    ["Project", projectName],
+    ["Area", areaName],
+    ["Cabinet code", values.code],
+    ["Cabinet name", values.itemName || `${areaName} cabinet`],
+    ["Category", values.cabinetCategory],
+    ["Subtype", subtype],
+    ["Dimensions", `${values.width || "-"} x ${values.height || "-"} x ${values.depth || "-"} ${values.inputUnit}`],
+    ["Quantity", values.quantity || "1"],
+    ["Material", values.interiorMaterial === "Custom" ? values.customMaterialName || "Custom" : values.interiorMaterial],
+    ["Status", values.status],
+    ["Notes", values.notes || "-"],
+  ];
+
+  return (
+    <fieldset className="form-section">
+      <legend>Cabinet Row Preview</legend>
+      <CutListInformation rows={cutListRows} />
+      <div className="labeled-stack">
+        {previewRows.map(([label, value]) => (
+          <div className="labeled-line" key={label}>
+            <span>{label}:</span>
+            <strong>{value}</strong>
+          </div>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
 export function CabinetFormPage() {
   const {
     records,
@@ -142,13 +347,28 @@ export function CabinetFormPage() {
   const project = records.projects.find((entry) => entry.id === cabinetFormState?.projectId);
   const area = project?.areas.find((entry) => entry.id === cabinetFormState?.areaId);
   const existingRecord = records.cutLists.find((entry) => entry.id === cabinetFormState?.recordId);
-  const nextCode = useMemo(
-    () => generateNextNumber("CUT", records.cutLists.map((cutList) => cutList.code)),
-    [records.cutLists]
+  const duplicateRecord = records.cutLists.find(
+    (entry) => entry.id === cabinetFormState?.duplicateFromId
+  );
+  const defaultRecord = existingRecord ?? duplicateRecord;
+  const makeCabinetCode = (
+    category: CutListRecord["cabinetCategory"],
+    subtype: CutListRecord["cabinetSubtype"]
+  ) =>
+    generateNextCabinetCode(
+      getCabinetCodePrefix(category, subtype),
+      records.cutLists
+        .filter((cutList) => cutList.id !== existingRecord?.id)
+        .map((cutList) => cutList.code)
+    );
+  const nextCode = makeCabinetCode(
+    defaultRecord?.cabinetCategory ?? "Base",
+    defaultRecord?.cabinetSubtype ?? "Standard"
   );
   const [values, setValues] = useState<CabinetFormValues>(() =>
-    makeDefaults(existingRecord, nextCode)
+    makeDefaults(defaultRecord, nextCode, Boolean(existingRecord))
   );
+  const [previewValues, setPreviewValues] = useState<CabinetFormValues | null>(null);
 
   const subtypeOptions =
     values.cabinetCategory === "Upper"
@@ -170,15 +390,6 @@ export function CabinetFormPage() {
   const showLightValance =
     showUpperOptions && values.upperBottomCondition === "Light Valance";
   const isCustomMaterial = values.interiorMaterial === "Custom";
-  const bodyDepth = useMemo(() => {
-    const depth = Number(values.depth);
-    const doorThickness = Number(values.doorThickness);
-    const bumperAllowance = Number(values.bumperAllowance);
-    if (!Number.isFinite(depth) || !Number.isFinite(doorThickness) || depth <= 0) {
-      return "";
-    }
-    return formatNumber(depth - doorThickness - (Number.isFinite(bumperAllowance) ? bumperAllowance : 0));
-  }, [values.bumperAllowance, values.depth, values.doorThickness]);
 
   if (!cabinetFormState || !project || !area) {
     return (
@@ -199,57 +410,84 @@ export function CabinetFormPage() {
 
   const returnToProject = () => {
     setDetailState(null);
-    setProjectWorkspaceTab("areas");
+    setProjectWorkspaceTab(cabinetFormState.returnTab ?? "areas");
     setCabinetFormState(null);
   };
 
-  const submit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const drawerHeights = showDrawerFields ? values.drawerHeights.filter(Boolean).join(",") : "";
+  const saveCabinet = (sourceValues: CabinetFormValues) => {
+    const sourceSubtypeOptions =
+      sourceValues.cabinetCategory === "Upper"
+        ? upperSubtypes
+        : sourceValues.cabinetCategory === "Base"
+          ? baseSubtypes
+          : [];
+    const sourceSubtype = sourceSubtypeOptions.includes(sourceValues.cabinetSubtype)
+      ? sourceValues.cabinetSubtype
+      : sourceSubtypeOptions[0] ?? "Standard";
+    const sourceCabinetUse = getCabinetUse(sourceValues.cabinetCategory, sourceSubtype);
+    const sourceShowShelfFields =
+      sourceCabinetUse === "shelvingCabinet" || sourceCabinetUse === "upperShelvingCabinet";
+    const sourceShowDrawerFields = sourceCabinetUse === "drawerBank";
+    const sourceShowBackOption =
+      sourceCabinetUse === "drawerBank" || sourceCabinetUse === "sinkCabinet";
+    const sourceShowUpperOptions = sourceValues.cabinetCategory === "Upper";
+    const sourceShowFinishedBottom =
+      sourceShowUpperOptions && sourceValues.upperBottomCondition === "Finished Bottom";
+    const sourceShowLightValance =
+      sourceShowUpperOptions && sourceValues.upperBottomCondition === "Light Valance";
+    const sourceIsCustomMaterial = sourceValues.interiorMaterial === "Custom";
+    const drawerHeights = sourceShowDrawerFields
+      ? sourceValues.drawerHeights.filter(Boolean).join(",")
+      : "";
     const savedId = saveModuleRecord(
       "cutLists",
       {
         projectId: project.id,
         areaId: area.id,
-        code: values.code,
-        itemName: values.itemName || `${area.areaName} cabinet`,
-        cabinetCategory: values.cabinetCategory,
-        cabinetSubtype: showSubtype ? selectedSubtype : "Standard",
-        inputUnit: values.inputUnit,
-        width: values.width,
-        height: values.height,
-        depth: values.depth,
-        quantity: values.quantity,
-        interiorMaterial: values.interiorMaterial,
-        customMaterialName: isCustomMaterial ? values.customMaterialName : "",
-        customMaterialThickness: isCustomMaterial ? values.customMaterialThickness : "0",
-        materialThickness: values.materialThickness,
-        doorThickness: values.doorThickness,
-        bumperAllowance: values.bumperAllowance,
-        finishedSides: values.cabinetCategory === "Upper" ? "Front" : values.finishedSides,
-        upperBottomCondition: showUpperOptions
-          ? values.upperBottomCondition
+        code: sourceValues.code,
+        itemName: sourceValues.itemName || `${area.areaName} cabinet`,
+        cabinetCategory: sourceValues.cabinetCategory,
+        cabinetSubtype: sourceSubtypeOptions.length > 0 ? sourceSubtype : "Standard",
+        inputUnit: sourceValues.inputUnit,
+        width: sourceValues.width,
+        height: sourceValues.height,
+        depth: sourceValues.depth,
+        quantity: sourceValues.quantity,
+        interiorMaterial: sourceValues.interiorMaterial,
+        customMaterialName: sourceIsCustomMaterial ? sourceValues.customMaterialName : "",
+        customMaterialThickness: sourceIsCustomMaterial ? sourceValues.customMaterialThickness : "0",
+        materialThickness: sourceValues.materialThickness,
+        doorThickness: sourceValues.doorThickness,
+        bumperAllowance: sourceValues.bumperAllowance,
+        finishedSides: sourceValues.cabinetCategory === "Upper" ? "Front" : sourceValues.finishedSides,
+        upperBottomCondition: sourceShowUpperOptions
+          ? sourceValues.upperBottomCondition
           : "Regular / Visible Bottom",
-        finishedMaterialThicknessM2: showFinishedBottom
-          ? values.finishedMaterialThicknessM2
+        finishedMaterialThicknessM2: sourceShowFinishedBottom
+          ? sourceValues.finishedMaterialThicknessM2
           : "0",
-        lightValanceHeight: showLightValance ? values.lightValanceHeight : "0",
-        backOption: showBackOption ? values.backOption : "fullBack",
-        shelfQty: showShelfFields ? values.shelfQty : "0",
-        shelfType: showShelfFields ? values.shelfType : "Fixed Shelf",
-        shelfFinish: showShelfFields ? values.shelfFinish : "White",
-        slideType: showDrawerFields ? values.slideType : "",
-        slideLength: showDrawerFields ? values.slideLength : "0",
-        drawerQty: showDrawerFields ? values.drawerQty : "0",
+        lightValanceHeight: sourceShowLightValance ? sourceValues.lightValanceHeight : "0",
+        backOption: sourceShowBackOption ? sourceValues.backOption : "fullBack",
+        shelfQty: sourceShowShelfFields ? sourceValues.shelfQty : "0",
+        shelfType: sourceShowShelfFields ? sourceValues.shelfType : "Fixed Shelf",
+        shelfFinish: sourceShowShelfFields ? sourceValues.shelfFinish : "White",
+        slideType: sourceShowDrawerFields ? sourceValues.slideType : "",
+        slideLength: sourceShowDrawerFields ? sourceValues.slideLength : "0",
+        drawerQty: sourceShowDrawerFields ? sourceValues.drawerQty : "0",
         drawerHeights,
-        status: values.status,
-        notes: values.notes,
+        status: sourceValues.status,
+        notes: sourceValues.notes,
       },
       existingRecord?.id
     );
 
     returnToProject();
     return savedId;
+  };
+
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setPreviewValues(values);
   };
 
   return (
@@ -279,6 +517,24 @@ export function CabinetFormPage() {
         )}
 
         <form className="cabinet-form-page" onSubmit={submit}>
+          {previewValues ? (
+            <CabinetPreview
+              areaName={area.areaName}
+              cutListRows={generateCabinetCutListRows(
+                makePreviewCutListRecord({
+                  areaId: area.id,
+                  projectId: project.id,
+                  subtype: selectedSubtype,
+                  values: previewValues,
+                }),
+                records.projects
+              )}
+              projectName={project.name}
+              subtype={selectedSubtype}
+              values={previewValues}
+            />
+          ) : (
+            <>
           <fieldset className="form-section">
             <legend>Cabinet Identity</legend>
             <div className="form-grid">
@@ -286,18 +542,24 @@ export function CabinetFormPage() {
                 <select
                   value={values.cabinetCategory}
                   onChange={(event) =>
-                    setValues((current) => ({
-                      ...current,
-                      cabinetCategory: event.target.value as CutListRecord["cabinetCategory"],
-                      cabinetSubtype:
-                        event.target.value === "Upper"
+                    setValues((current) => {
+                      const cabinetCategory = event.target.value as CutListRecord["cabinetCategory"];
+                      const cabinetSubtype =
+                        cabinetCategory === "Upper"
                           ? "Standard"
-                          : event.target.value === "Base"
+                          : cabinetCategory === "Base"
                             ? baseSubtypes.includes(current.cabinetSubtype)
                               ? current.cabinetSubtype
                               : "Standard"
-                            : "Standard",
-                    }))
+                            : "Standard";
+
+                      return {
+                        ...current,
+                        cabinetCategory,
+                        cabinetSubtype,
+                        code: makeCabinetCode(cabinetCategory, cabinetSubtype),
+                      };
+                    })
                   }
                 >
                   {["Base", "Upper", "Tower / Tall", "Open"].map((value) => (
@@ -310,7 +572,15 @@ export function CabinetFormPage() {
                   <select
                     value={selectedSubtype}
                     onChange={(event) =>
-                      setValue("cabinetSubtype", event.target.value as CutListRecord["cabinetSubtype"])
+                      setValues((current) => {
+                        const cabinetSubtype = event.target.value as CutListRecord["cabinetSubtype"];
+
+                        return {
+                          ...current,
+                          cabinetSubtype,
+                          code: makeCabinetCode(current.cabinetCategory, cabinetSubtype),
+                        };
+                      })
                     }
                   >
                     {subtypeOptions.map((value) => (
@@ -320,7 +590,10 @@ export function CabinetFormPage() {
                 </Field>
               )}
               <Field label="Auto-generated Code" required>
-                <input value={values.code} onChange={(event) => setValue("code", event.target.value)} />
+                <input
+                  readOnly
+                  value={values.code}
+                />
               </Field>
               <Field label="Item Name / Description">
                 <input
@@ -409,9 +682,6 @@ export function CabinetFormPage() {
                   </select>
                 </Field>
               )}
-              <Field label="Box Depth (calculated)">
-                <input readOnly value={bodyDepth} />
-              </Field>
             </div>
           </fieldset>
 
@@ -538,30 +808,8 @@ export function CabinetFormPage() {
             </fieldset>
           )}
 
-          <fieldset className="form-section">
-            <legend>Live Cabinet Summary</legend>
-            <div className="live-summary-grid">
-              {[
-                ["Project", project.name],
-                ["Area", area.areaName],
-                ["Category", values.cabinetCategory],
-                showSubtype ? ["Subtype", selectedSubtype] : null,
-                ["Formula status", values.cabinetCategory === "Base" || values.cabinetCategory === "Upper" ? "Enabled" : "Not implemented yet"],
-                ["Box depth", bodyDepth || "-"],
-                showShelfFields ? ["Shelf qty", values.shelfQty || "0"] : null,
-                showDrawerFields ? ["Drawer qty", values.drawerQty || "0"] : null,
-                ["Material", isCustomMaterial ? values.customMaterialName || "Custom" : values.interiorMaterial],
-              ].filter(Boolean).map((item) => {
-                const [label, value] = item as string[];
-                return (
-                  <article className="summary-item" key={label}>
-                    <span>{label}</span>
-                    <strong>{value}</strong>
-                  </article>
-                );
-              })}
-            </div>
-          </fieldset>
+            </>
+          )}
 
           <div className="flyout-footer cabinet-page-footer">
             {existingRecord && (
@@ -579,9 +827,28 @@ export function CabinetFormPage() {
             <button className="secondary-button" onClick={returnToProject} type="button">
               Cancel
             </button>
-            <button className="primary-button" type="submit">
-              Save Cabinet
-            </button>
+            {previewValues ? (
+              <>
+                <button
+                  className="secondary-button"
+                  onClick={() => setPreviewValues(null)}
+                  type="button"
+                >
+                  Edit Row
+                </button>
+                <button
+                  className="primary-button"
+                  onClick={() => saveCabinet(previewValues)}
+                  type="button"
+                >
+                  Save Cabinet
+                </button>
+              </>
+            ) : (
+              <button className="primary-button" type="submit">
+                Preview Cabinet Row & Cutlist
+              </button>
+            )}
           </div>
         </form>
       </div>
