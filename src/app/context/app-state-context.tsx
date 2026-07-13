@@ -293,6 +293,27 @@ function parseProjectAreas(value: string, now: string): ProjectAreaRecord[] {
   );
 }
 
+function buildSiteAddress(parts: {
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  fallback?: string;
+}) {
+  const address = [
+    parts.addressLine1,
+    parts.addressLine2,
+    parts.city,
+    parts.state,
+    parts.zipCode,
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  return address || parts.fallback || "";
+}
+
 function findLocationIdByReceiptLocation(
   locations: LocationRecord[],
   receivedLocation: string
@@ -537,37 +558,34 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       }
 
       if (moduleKey === "projects") {
-        const name = text("name");
-        const siteAddress = [
-          text("addressLine1"),
-          text("addressLine2"),
-          text("city"),
-          text("state"),
-          text("zipCode"),
-        ]
-          .filter(Boolean)
-          .join(", ");
+        const name = text("name") || "Untitled Project";
+        const addressLine1 = text("addressLine1") || text("siteAddress") || text("location");
+        const addressLine2 = text("addressLine2");
+        const city = text("city");
+        const state = text("state");
+        const zipCode = text("zipCode");
+        const siteAddress = buildSiteAddress({
+          addressLine1,
+          addressLine2,
+          city,
+          state,
+          zipCode,
+          fallback: text("siteAddress") || text("location"),
+        });
         const record: ProjectRecord = {
           id,
           name,
-          code:
-            text("code") ||
-            generateProjectJobNumber(
-              name,
-              current.projects
-                .filter((project) => project.id !== id)
-                .map((project) => project.code)
-            ),
+          code: text("code"),
           customerName: text("customerName"),
           siteAddress,
-          addressLine1: text("addressLine1"),
-          addressLine2: text("addressLine2"),
-          city: text("city"),
-          state: text("state"),
-          zipCode: text("zipCode"),
+          addressLine1,
+          addressLine2,
+          city,
+          state,
+          zipCode,
           projectDate: text("projectDate"),
           preparedBy: text("preparedBy"),
-          status: text("status"),
+          status: text("status") || "Draft",
           location: siteAddress,
           budget: number("budget"),
           notes: text("notes"),
@@ -590,7 +608,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
           interiorMaterial: text("interiorMaterial"),
           customMaterialName: text("customMaterialName"),
           customMaterialThickness: toInches(number("customMaterialThickness"), inputUnit),
-          materialThickness: toInches(number("materialThickness"), inputUnit),
+          materialThickness: number("materialThickness"),
         };
         const resolvedMaterial = resolveCutListMaterial(rawMaterial);
         const record: CutListRecord = {
@@ -737,6 +755,13 @@ export function AppStateProvider({ children }: PropsWithChildren) {
 
   const saveProjectAreas = (projectId: string, areas: ProjectAreaRecord[]) => {
     const now = new Date().toISOString();
+    const normalizedAreas = areas.map((area) =>
+      normalizeStoredProjectArea({
+        ...area,
+        updatedAt: area.updatedAt || now,
+      })
+    );
+    const validAreaIds = new Set(normalizedAreas.map((area) => area.id));
 
     setRecords((current) => ({
       ...current,
@@ -745,16 +770,14 @@ export function AppStateProvider({ children }: PropsWithChildren) {
           project.id === projectId
             ? {
                 ...project,
-                areas: areas.map((area) =>
-                  normalizeStoredProjectArea({
-                    ...area,
-                    updatedAt: area.updatedAt || now,
-                  })
-                ),
+                areas: normalizedAreas,
                 updatedAt: now,
               }
             : project
         )
+      ),
+      cutLists: current.cutLists.filter(
+        (cutList) => cutList.projectId !== projectId || !cutList.areaId || validAreaIds.has(cutList.areaId)
       ),
     }));
   };
@@ -763,10 +786,27 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     moduleKey: Exclude<ModuleKey, "dashboard">,
     id: string
   ) => {
-    setRecords((current) => ({
-      ...current,
-      [moduleKey]: current[moduleKey].filter((entry) => entry.id !== id),
-    }));
+    setRecords((current) => {
+      const next = {
+        ...current,
+        [moduleKey]: current[moduleKey].filter((entry) => entry.id !== id),
+      };
+
+      if (moduleKey === "projects") {
+        return {
+          ...next,
+          cutLists: current.cutLists.filter((cutList) => cutList.projectId !== id),
+          workers: current.workers.map((worker) =>
+            worker.projectId === id ? { ...worker, projectId: "" } : worker
+          ),
+          purchaseOrders: current.purchaseOrders.map((po) =>
+            po.projectId === id ? { ...po, projectId: "" } : po
+          ),
+        };
+      }
+
+      return next;
+    });
   };
 
   const runImport = (
@@ -840,9 +880,16 @@ export function AppStateProvider({ children }: PropsWithChildren) {
             const city = row.city || "";
             const state = row.state || "";
             const zipCode = row.zipCode || "";
-            const siteAddress = [addressLine1, addressLine2, city, state, zipCode]
-              .filter(Boolean)
-              .join(", ");
+            const siteAddress = buildSiteAddress({
+              addressLine1,
+              addressLine2,
+              city,
+              state,
+              zipCode,
+              fallback: row.siteAddress || row.location || "",
+            });
+            const areaName = row.areaName || row.roomName || row.area || row.room || "";
+            const areaCode = row.areaCode || row.roomCode || "";
 
             return {
               id: makeId("pro"),
@@ -867,7 +914,17 @@ export function AppStateProvider({ children }: PropsWithChildren) {
               location: siteAddress,
               budget: Number(row.budget || 1000000 * (index + 1)),
               notes: row.notes || "",
-              areas: [],
+              areas: areaName
+                ? [
+                    normalizeStoredProjectArea({
+                      areaName,
+                      areaCode,
+                      notes: row.areaNotes || row.roomNotes || "",
+                      createdAt: now,
+                      updatedAt: now,
+                    }),
+                  ]
+                : parseProjectAreas(row.areasJson || row.areas || "[]", now),
               updatedAt: now,
             };
           }),
@@ -886,17 +943,23 @@ export function AppStateProvider({ children }: PropsWithChildren) {
               interiorMaterial: row.interiorMaterial || "5/8 White Melamine",
               customMaterialName: row.customMaterialName || "",
               customMaterialThickness: toInches(Number(row.customMaterialThickness || 0), inputUnit),
-              materialThickness: toInches(Number(row.materialThickness || 0.625), inputUnit),
+              materialThickness: Number(row.materialThickness || 0.625),
             };
             const resolvedMaterial = resolveCutListMaterial(rawMaterial);
+            const project =
+              current.projects.find((entry) => entry.name === row.projectName) ??
+              current.projects.find((entry) => entry.code === row.projectCode || entry.code === row.jobNumber) ??
+              current.projects[0];
+            const area =
+              project?.areas.find((entry) => entry.id === row.areaId) ??
+              project?.areas.find((entry) => entry.areaCode.toLowerCase() === (row.areaCode || "").toLowerCase()) ??
+              project?.areas.find((entry) => entry.areaName.toLowerCase() === (row.areaName || row.roomName || row.area || row.room || "").toLowerCase()) ??
+              project?.areas[0];
 
             return {
               id: makeId("cut"),
-              projectId:
-                current.projects.find((project) => project.name === row.projectName)?.id ??
-                current.projects[0]?.id ??
-                "",
-              areaId: row.areaId || "",
+              projectId: project?.id ?? "",
+              areaId: area?.id ?? "",
               code:
                 row.code ||
                 generateNextCabinetCode(

@@ -4,7 +4,6 @@ import { FormEvent, useMemo, useState } from "react";
 import { useAppState } from "@/app/context/app-state-context";
 import {
   CutListRecord,
-  generateProjectJobNumber,
   makeId,
   ProjectAreaRecord,
   ProjectRecord,
@@ -45,13 +44,8 @@ function ProjectFormPage({
   project?: ProjectRecord;
   onBack: (projectId?: string) => void;
 }) {
-  const { records, saveModuleRecord } = useAppState();
-  const [projectName, setProjectName] = useState(project?.name ?? "");
-  const [jobNumber, setJobNumber] = useState(project?.code ?? "");
-  const existingJobNumbers = records.projects
-    .filter((entry) => entry.id !== project?.id)
-    .map((entry) => entry.code);
-  const projectStatuses = ["Draft", "In Review", "Final", "Rework"];
+  const { saveModuleRecord } = useAppState();
+  const projectStatuses = ["Draft", "In Review", "Final"];
   const statusOptions =
     project?.status && !projectStatuses.includes(project.status)
       ? [project.status, ...projectStatuses]
@@ -94,27 +88,16 @@ function ProjectFormPage({
                 <span>Project Name</span>
                 <input
                   name="name"
-                  value={projectName}
-                  onChange={(event) => {
-                    const name = event.target.value;
-                    setProjectName(name);
-                    setJobNumber(
-                      name.trim()
-                        ? generateProjectJobNumber(name, existingJobNumbers)
-                        : ""
-                    );
-                  }}
-                  required
+                  defaultValue={project?.name ?? ""}
+                  placeholder="Smith Kitchen"
                 />
               </label>
               <label className="field">
                 <span>Job Number</span>
                 <input
                   name="code"
-                  placeholder="Job number"
-                  readOnly
-                  value={jobNumber}
-                  required
+                  defaultValue={project?.code ?? ""}
+                  placeholder="J-1001"
                 />
               </label>
               <label className="field">
@@ -152,27 +135,12 @@ function ProjectFormPage({
             <legend>Site / Address</legend>
             <div className="form-grid">
               <label className="field field-full">
-                <span>Address Line 1</span>
+                <span>Site / Address</span>
                 <input
-                  name="addressLine1"
-                  defaultValue={project?.addressLine1 ?? project?.siteAddress ?? project?.location ?? ""}
+                  name="siteAddress"
+                  defaultValue={project?.siteAddress ?? project?.location ?? project?.addressLine1 ?? ""}
+                  placeholder="Site or address"
                 />
-              </label>
-              <label className="field field-full">
-                <span>Address Line 2</span>
-                <input name="addressLine2" defaultValue={project?.addressLine2 ?? ""} />
-              </label>
-              <label className="field">
-                <span>City</span>
-                <input name="city" defaultValue={project?.city ?? ""} />
-              </label>
-              <label className="field">
-                <span>State</span>
-                <input name="state" defaultValue={project?.state ?? ""} />
-              </label>
-              <label className="field">
-                <span>Zip Code</span>
-                <input name="zipCode" defaultValue={project?.zipCode ?? ""} />
               </label>
             </div>
           </fieldset>

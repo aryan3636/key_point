@@ -279,31 +279,30 @@ function ProjectFields({
         <h3>Project Info</h3>
         <p>Site / Address is project metadata. Areas / Rooms are attached below.</p>
       </div>
-      <FormField
-        name="name"
-        label="Project Name"
-        defaultValue={String(record?.name ?? "")}
-        placeholder="Smith Kitchen"
-      />
-      <FormField
-        name="code"
-        label="Job Number"
-        defaultValue={String(record?.code ?? "")}
-        placeholder="J-1001"
-      />
+      <label className="field">
+        <span>Project Name</span>
+        <input
+          defaultValue={String(record?.name ?? "")}
+          name="name"
+          placeholder="Smith Kitchen"
+          type="text"
+        />
+      </label>
+      <label className="field">
+        <span>Job Number</span>
+        <input
+          defaultValue={String(record?.code ?? "")}
+          name="code"
+          placeholder="J-1001"
+          type="text"
+        />
+      </label>
       <FormField
         name="customerName"
         label="Customer Name"
         required={false}
         defaultValue={String(record?.customerName ?? "")}
         placeholder="Customer name"
-      />
-      <FormField
-        name="siteAddress"
-        label="Site / Address"
-        required={false}
-        defaultValue={String(record?.siteAddress ?? record?.location ?? "")}
-        placeholder="Site or address"
       />
       <FormField
         name="projectDate"
@@ -322,12 +321,11 @@ function ProjectFields({
       <FormSelectField
         name="status"
         label="Status"
-        defaultValue={String(record?.status ?? "Planning")}
-        options={["Planning", "Active", "Draft", "In Review", "Final", "Completed"].map(
+        defaultValue={String(record?.status ?? "Draft")}
+        options={["Draft", "In Review", "Final"].map(
           (value) => ({ value, label: value })
         )}
       />
-      <FormField name="location" label="Location" defaultValue={String(record?.location ?? "")} />
       <FormField
         name="budget"
         label="Budget"
@@ -335,6 +333,13 @@ function ProjectFields({
         defaultValue={String(record?.budget ?? 0)}
       />
       <FormTextArea name="notes" label="Notes" defaultValue={String(record?.notes ?? "")} />
+      <FormField
+        name="siteAddress"
+        label="Site / Address"
+        required={false}
+        defaultValue={String(record?.siteAddress ?? record?.location ?? record?.addressLine1 ?? "")}
+        placeholder="Site or address"
+      />
       <section className="project-form-section field-full">
         <div className="section-header">
           <div>
