@@ -444,7 +444,7 @@ export function CabinetFormPage() {
     defaultRecord?.cabinetSubtype ?? "Standard"
   );
   const [values, setValues] = useState<CabinetFormValues>(() =>
-    makeDefaults(defaultRecord, duplicateRecord ? nextCode : "", Boolean(existingRecord))
+    makeDefaults(defaultRecord, nextCode, Boolean(existingRecord))
   );
   const [formError, setFormError] = useState("");
   const [formMessage, setFormMessage] = useState("Enter cabinet dimensions, then save the row.");
@@ -490,6 +490,12 @@ export function CabinetFormPage() {
   const returnToProject = () => {
     setDetailState(null);
     setProjectWorkspaceTab(cabinetFormState.returnTab ?? "areas");
+    setCabinetFormState(null);
+  };
+
+  const showCabinetList = () => {
+    setDetailState(null);
+    setProjectWorkspaceTab("cutlists");
     setCabinetFormState(null);
   };
 
@@ -574,11 +580,7 @@ export function CabinetFormPage() {
 
     setFormError("");
     setFormMessage(existingRecord ? "Cabinet row updated." : "Cabinet row saved.");
-    if (existingRecord) {
-      returnToProject();
-    } else {
-      clearCabinetForm("Cabinet row saved.");
-    }
+    showCabinetList();
     return savedId;
   };
 
@@ -587,8 +589,12 @@ export function CabinetFormPage() {
     saveCabinet(values);
   };
 
-  const clearCabinetForm = (message = "Form cleared.") => {
-    setValues(makeDefaults(undefined, "", false));
+  const clearCabinetForm = (message = "Form cleared.", reservedCode = "") => {
+    const nextBaseCode = generateNextCabinetCode(
+      getCabinetCodePrefix("Base", "Standard"),
+      [...records.cutLists.map((cutList) => cutList.code), reservedCode].filter(Boolean)
+    );
+    setValues(makeDefaults(undefined, nextBaseCode, false));
     setFormError("");
     setFormMessage(message);
   };
@@ -664,6 +670,7 @@ export function CabinetFormPage() {
                         ...current,
                         cabinetCategory,
                         cabinetSubtype,
+                        code: existingRecord?.code ?? makeCabinetCode(cabinetCategory, cabinetSubtype),
                       };
                     })
                   }
@@ -684,6 +691,9 @@ export function CabinetFormPage() {
                         return {
                           ...current,
                           cabinetSubtype,
+                          code:
+                            existingRecord?.code ??
+                            makeCabinetCode(current.cabinetCategory, cabinetSubtype),
                         };
                       })
                     }
@@ -696,8 +706,7 @@ export function CabinetFormPage() {
               )}
               <Field label="Auto-generated Code" required>
                 <input
-                  onChange={(event) => setValue("code", event.target.value.toUpperCase())}
-                  placeholder="B4"
+                  readOnly
                   value={values.code}
                 />
               </Field>

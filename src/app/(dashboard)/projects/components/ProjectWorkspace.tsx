@@ -1,9 +1,10 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useAppState } from "@/app/context/app-state-context";
 import {
   CutListRecord,
+  generateNextNumber,
   makeId,
   ProjectAreaRecord,
   ProjectRecord,
@@ -16,6 +17,9 @@ import {
   groupProductionRowsByFamily,
 } from "@/lib/cutListEngine";
 import { sortCutListsByCode } from "@/lib/cutListSort";
+import ConfirmationDialog, {
+  ConfirmationDialogConfig,
+} from "@/components/ConfirmationDialog";
 
 type ProjectMode = "workspace" | "detail" | "form" | "areaDetail" | "cutlistDetail";
 function currency(value: number) {
@@ -161,22 +165,31 @@ function ProjectFormPage({
 
 function ProjectDetailPage({
   project,
+  editAreaId,
   onBack,
   onEdit,
   onViewAreaCutlists,
 }: {
   project: ProjectRecord;
+  editAreaId?: string;
   onBack: () => void;
   onEdit: () => void;
   onViewAreaCutlists: (areaId: string) => void;
 }) {
   const { records, saveProjectAreas, setCabinetFormState } = useAppState();
-  const [areaDraft, setAreaDraft] = useState({ id: "", areaName: "", areaCode: "", notes: "" });
+  const editArea = project.areas.find((area) => area.id === editAreaId);
+  const [areaDraft, setAreaDraft] = useState({
+    id: editArea?.id ?? "",
+    areaName: editArea?.areaName ?? "",
+    areaCode: editArea?.areaCode ?? "",
+    notes: editArea?.notes ?? "",
+  });
+  const [isAreaFormOpen, setIsAreaFormOpen] = useState(Boolean(editArea) || project.areas.length === 0);
   const [message, setMessage] = useState("");
   const projectCutLists = sortCutListsByCode(
     records.cutLists.filter((cutList) => cutList.projectId === project.id)
   );
-  const canSaveArea = Boolean(areaDraft.areaName.trim() && areaDraft.areaCode.trim());
+  const canSaveArea = Boolean(areaDraft.areaName.trim());
 
   const saveArea = () => {
     if (!canSaveArea) {
@@ -187,7 +200,9 @@ function ProjectDetailPage({
     const nextArea: ProjectAreaRecord = {
       id: areaDraft.id || makeId("area"),
       areaName: areaDraft.areaName.trim(),
-      areaCode: areaDraft.areaCode.trim().toUpperCase(),
+      areaCode:
+        areaDraft.areaCode.trim().toUpperCase() ||
+        generateNextNumber("A", project.areas.map((area) => area.areaCode)),
       notes: areaDraft.notes.trim(),
       createdAt:
         project.areas.find((area) => area.id === areaDraft.id)?.createdAt ?? now,
@@ -199,6 +214,7 @@ function ProjectDetailPage({
 
     saveProjectAreas(project.id, nextAreas);
     setAreaDraft({ id: "", areaName: "", areaCode: "", notes: "" });
+    setIsAreaFormOpen(false);
     setMessage("Area saved. You can add cabinets to it now.");
   };
 
@@ -240,8 +256,21 @@ function ProjectDetailPage({
               <h3>Areas</h3>
               <p>Save an area first, then add cabinets from the saved area card.</p>
             </div>
+            {!isAreaFormOpen && (
+              <button
+                className="primary-button"
+                onClick={() => {
+                  setAreaDraft({ id: "", areaName: "", areaCode: "", notes: "" });
+                  setIsAreaFormOpen(true);
+                  setMessage("");
+                }}
+                type="button"
+              >
+                + Add Area
+              </button>
+            )}
           </div>
-          <div className="area-editor-grid">
+          {isAreaFormOpen && <div className="area-editor-grid">
             <label className="field">
               <span>Area Name</span>
               <input
@@ -253,9 +282,10 @@ function ProjectDetailPage({
             <label className="field">
               <span>Area Code</span>
               <input
+                readOnly={!areaDraft.id}
                 value={areaDraft.areaCode}
                 onChange={(event) => setAreaDraft((current) => ({ ...current, areaCode: event.target.value }))}
-                placeholder="KIT"
+                placeholder={generateNextNumber("A", project.areas.map((area) => area.areaCode))}
               />
             </label>
             <label className="field field-full">
@@ -273,14 +303,17 @@ function ProjectDetailPage({
               {areaDraft.id && (
                 <button
                   className="secondary-button"
-                  onClick={() => setAreaDraft({ id: "", areaName: "", areaCode: "", notes: "" })}
+                  onClick={() => {
+                    setAreaDraft({ id: "", areaName: "", areaCode: "", notes: "" });
+                    setIsAreaFormOpen(false);
+                  }}
                   type="button"
                 >
                   Cancel Area Edit
                 </button>
               )}
             </div>
-          </div>
+          </div>}
           {message && <div className="form-message success">{message}</div>}
 
           <div className="area-list">
@@ -311,12 +344,16 @@ function ProjectDetailPage({
                   <div className="pill-actions">
                     <button
                       className="table-action"
-                      onClick={() => setAreaDraft({
-                        id: area.id,
-                        areaName: area.areaName,
-                        areaCode: area.areaCode,
-                        notes: area.notes,
-                      })}
+                      onClick={() => {
+                        setAreaDraft({
+                          id: area.id,
+                          areaName: area.areaName,
+                          areaCode: area.areaCode,
+                          notes: area.notes,
+                        });
+                        setIsAreaFormOpen(true);
+                        setMessage("");
+                      }}
                       type="button"
                     >
                       Edit Area
@@ -338,11 +375,13 @@ function ProjectDetailPage({
 
 function CutListMiniTable({
   cutLists,
+  onDeleteCabinet,
   onDuplicateCabinet,
   onEditCabinet,
   onOpenCutList,
 }: {
   cutLists: CutListRecord[];
+  onDeleteCabinet: (cutList: CutListRecord) => void;
   onDuplicateCabinet: (cutList: CutListRecord) => void;
   onEditCabinet: (cutList: CutListRecord) => void;
   onOpenCutList: (cutList: CutListRecord) => void;
@@ -383,6 +422,7 @@ function CutListMiniTable({
               <CutListRow
                 cutList={cutList}
                 key={cutList.id}
+                onDeleteCabinet={onDeleteCabinet}
                 onDuplicateCabinet={onDuplicateCabinet}
                 onEditCabinet={onEditCabinet}
                 onOpenCutList={onOpenCutList}
@@ -413,6 +453,7 @@ function CutListMiniTable({
               <CutListRow
                 cutList={cutList}
                 key={cutList.id}
+                onDeleteCabinet={onDeleteCabinet}
                 onDuplicateCabinet={onDuplicateCabinet}
                 onEditCabinet={onEditCabinet}
                 onOpenCutList={onOpenCutList}
@@ -428,11 +469,13 @@ function CutListMiniTable({
 
 function CutListRow({
   cutList,
+  onDeleteCabinet,
   onDuplicateCabinet,
   onEditCabinet,
   onOpenCutList,
 }: {
   cutList: CutListRecord;
+  onDeleteCabinet: (cutList: CutListRecord) => void;
   onDuplicateCabinet: (cutList: CutListRecord) => void;
   onEditCabinet: (cutList: CutListRecord) => void;
   onOpenCutList: (cutList: CutListRecord) => void;
@@ -458,28 +501,12 @@ function CutListRow({
       <span>{cutList.cabinetCategory} / {cutList.cabinetSubtype}</span>
       <span>{cutList.status}</span>
       <span>{parts.length}</span>
-      <span className="row-actions">
-        <button
-          className="table-action"
-          onClick={(event) => {
-            event.stopPropagation();
-            onDuplicateCabinet(cutList);
-          }}
-          type="button"
-        >
-          Duplicate
-        </button>
-        <button
-          className="table-action"
-          onClick={(event) => {
-            event.stopPropagation();
-            onEditCabinet(cutList);
-          }}
-          type="button"
-        >
-          Edit
-        </button>
-      </span>
+      <RowActionsMenu
+        onDelete={() => onDeleteCabinet(cutList)}
+        onEdit={() => onEditCabinet(cutList)}
+        onView={() => onOpenCutList(cutList)}
+        secondaryAction={{ label: "Duplicate", onClick: () => onDuplicateCabinet(cutList) }}
+      />
     </div>
   );
 }
@@ -666,11 +693,15 @@ function AreaTableRow({
   area,
   cutListCount,
   onOpenArea,
+  onDeleteArea,
+  onEditArea,
 }: {
   project: ProjectRecord;
   area: ProjectAreaRecord;
   cutListCount: number;
   onOpenArea: () => void;
+  onDeleteArea: () => void;
+  onEditArea: () => void;
 }) {
   return (
     <div
@@ -690,34 +721,114 @@ function AreaTableRow({
       <span>{project.name}</span>
       <span>{area.notes || "-"}</span>
       <span>{cutListCount}</span>
+      <RowActionsMenu onDelete={onDeleteArea} onEdit={onEditArea} onView={onOpenArea} />
     </div>
   );
 }
 
-function ProjectListCard({
+function ProjectTableRow({
   project,
   cutListCount,
   onOpenProject,
+  onDeleteProject,
+  onEditProject,
 }: {
   project: ProjectRecord;
   cutListCount: number;
   onOpenProject: () => void;
+  onDeleteProject: () => void;
+  onEditProject: () => void;
 }) {
   return (
-    <article className="area-card">
-      <div className="area-card-header">
-        <div className="labeled-stack">
-          <LabeledLine label="Project" value={project.name} />
-          <LabeledLine label="Project code" value={project.code} />
-          <LabeledLine label="Customer" value={project.customerName || "-"} />
-          <LabeledLine label="Areas" value={String(project.areas.length)} />
-          <LabeledLine label="Cutlists" value={String(cutListCount)} />
-        </div>
-        <button className="secondary-button" onClick={onOpenProject} type="button">
-          Project Details
+    <div
+      className="table-row record-row project-list-row"
+      onClick={onOpenProject}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpenProject();
+        }
+      }}
+      role="button"
+      tabIndex={0}
+    >
+      <span>{project.name}</span>
+      <span>{project.code}</span>
+      <span>{project.customerName || "-"}</span>
+      <span>{project.areas.length}</span>
+      <span>{cutListCount}</span>
+      <RowActionsMenu onDelete={onDeleteProject} onEdit={onEditProject} onView={onOpenProject} />
+    </div>
+  );
+}
+
+function RowActionsMenu({
+  onDelete,
+  onEdit,
+  onView,
+  secondaryAction,
+}: {
+  onDelete: () => void;
+  onEdit: () => void;
+  onView: () => void;
+  secondaryAction?: { label: string; onClick: () => void };
+}) {
+  const menuRef = useRef<HTMLDetailsElement>(null);
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const closeWhenOutside = (event: PointerEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) {
+        menuRef.current?.removeAttribute("open");
+        setIsOpen(false);
+      }
+    };
+    const closeWithEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        menuRef.current?.removeAttribute("open");
+        setIsOpen(false);
+        menuRef.current?.querySelector("summary")?.focus();
+      }
+    };
+
+    document.addEventListener("pointerdown", closeWhenOutside);
+    document.addEventListener("keydown", closeWithEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeWhenOutside);
+      document.removeEventListener("keydown", closeWithEscape);
+    };
+  }, [isOpen]);
+
+  const runAction = (event: React.MouseEvent<HTMLButtonElement>, action: () => void) => {
+    event.stopPropagation();
+    menuRef.current?.removeAttribute("open");
+    setIsOpen(false);
+    action();
+  };
+
+  return (
+    <details
+      className="row-action-menu"
+      onClick={(event) => event.stopPropagation()}
+      onToggle={(event) => setIsOpen(event.currentTarget.open)}
+      ref={menuRef}
+    >
+      <summary aria-label="Open actions menu" title="Actions">•••</summary>
+      <div className="row-action-menu-popover">
+        <button onClick={(event) => runAction(event, onView)} type="button">View</button>
+        <button onClick={(event) => runAction(event, onEdit)} type="button">Edit</button>
+        {secondaryAction && (
+          <button onClick={(event) => runAction(event, secondaryAction.onClick)} type="button">
+            {secondaryAction.label}
+          </button>
+        )}
+        <button className="danger" onClick={(event) => runAction(event, onDelete)} type="button">
+          Delete
         </button>
       </div>
-    </article>
+    </details>
   );
 }
 
@@ -734,7 +845,8 @@ function AreaDetailPage({
   onOpenCutList: (cutList: CutListRecord) => void;
   onViewCutlists: () => void;
 }) {
-  const { records, setCabinetFormState } = useAppState();
+  const { records, removeModuleRecord, setCabinetFormState } = useAppState();
+  const [confirmation, setConfirmation] = useState<ConfirmationDialogConfig | null>(null);
   const areaCutLists = sortCutListsByCode(
     records.cutLists.filter((cutList) => cutList.projectId === project.id && cutList.areaId === area.id)
   );
@@ -772,6 +884,14 @@ function AreaDetailPage({
           <h3>Cabinets and Cutlists</h3>
           <CutListMiniTable
             cutLists={areaCutLists}
+            onDeleteCabinet={(cutList) =>
+              setConfirmation({
+                title: "Delete cabinet?",
+                description: `Are you sure you want to delete cabinet ${cutList.code}? This action cannot be undone.`,
+                confirmLabel: "Delete",
+                onConfirm: () => removeModuleRecord("cutLists", cutList.id),
+              })
+            }
             onDuplicateCabinet={(cutList) =>
               setCabinetFormState({
                 projectId: project.id,
@@ -792,6 +912,7 @@ function AreaDetailPage({
           />
         </section>
       </div>
+      <ConfirmationDialog config={confirmation} onClose={() => setConfirmation(null)} />
     </section>
   );
 }
@@ -804,14 +925,18 @@ export function ProjectWorkspace() {
     setCabinetFormState,
     setImportState,
     setProjectWorkspaceTab,
+    removeModuleRecord,
+    saveProjectAreas,
   } = useAppState();
   const [mode, setMode] = useState<ProjectMode>("workspace");
   const [selectedProjectId, setSelectedProjectId] = useState(records.projects[0]?.id ?? "");
   const [selectedAreaId, setSelectedAreaId] = useState("");
+  const [areaEditId, setAreaEditId] = useState("");
   const [selectedCutListId, setSelectedCutListId] = useState("");
   const [projectFilter, setProjectFilter] = useState("");
   const [areaFilter, setAreaFilter] = useState("");
   const [cutListViewMode, setCutListViewMode] = useState<"cabinet" | "production">("cabinet");
+  const [confirmation, setConfirmation] = useState<ConfirmationDialogConfig | null>(null);
 
   const selectedProject = records.projects.find((project) => project.id === selectedProjectId);
   const selectedArea = selectedProject?.areas.find((area) => area.id === selectedAreaId);
@@ -865,6 +990,7 @@ export function ProjectWorkspace() {
 
   const openProjectDetail = (projectId: string) => {
     setSelectedProjectId(projectId);
+    setAreaEditId("");
     setMode("detail");
   };
 
@@ -918,6 +1044,7 @@ export function ProjectWorkspace() {
   if (mode === "detail" && selectedProject) {
     return (
       <ProjectDetailPage
+        editAreaId={areaEditId}
         onBack={() => setMode("workspace")}
         onEdit={() => setMode("form")}
         onViewAreaCutlists={(areaId) => {
@@ -1001,7 +1128,15 @@ export function ProjectWorkspace() {
                 value={query}
               />
             </div>
-            <div className="area-list">
+            <div className="table-shell compact-table">
+              <div className="table-header table-row project-list-row">
+                <span>Project name</span>
+                <span>Project code</span>
+                <span>Customer</span>
+                <span>Areas</span>
+                <span>Cutlists</span>
+                <span>Actions</span>
+              </div>
               {records.projects
                 .filter((project) =>
                   query.trim()
@@ -1009,13 +1144,30 @@ export function ProjectWorkspace() {
                     : true
                 )
                 .map((project) => (
-                  <ProjectListCard
+                  <ProjectTableRow
                     cutListCount={records.cutLists.filter((cutList) => cutList.projectId === project.id).length}
                     key={project.id}
                     onOpenProject={() => openProjectDetail(project.id)}
+                    onEditProject={() => {
+                      setSelectedProjectId(project.id);
+                      setMode("form");
+                    }}
+                    onDeleteProject={() =>
+                      setConfirmation({
+                        title: "Delete project?",
+                        description: `Are you sure you want to delete ${project.name}? Its areas and cabinets will also be deleted. This action cannot be undone.`,
+                        confirmLabel: "Delete",
+                        onConfirm: () => removeModuleRecord("projects", project.id),
+                      })
+                    }
                     project={project}
                   />
                 ))}
+              {records.projects.filter((project) =>
+                query.trim()
+                  ? JSON.stringify(project).toLowerCase().includes(query.toLowerCase())
+                  : true
+              ).length === 0 && <div className="empty-state">No projects match this search.</div>}
             </div>
           </>
         )}
@@ -1043,6 +1195,7 @@ export function ProjectWorkspace() {
                 <span>Project</span>
                 <span>Notes</span>
                 <span>Cutlists</span>
+                <span>Actions</span>
               </div>
               {visibleAreaRows.map(({ project, area }) => (
                 <AreaTableRow
@@ -1053,6 +1206,24 @@ export function ProjectWorkspace() {
                     setSelectedProjectId(project.id);
                     setSelectedAreaId(area.id);
                     setMode("areaDetail");
+                  }}
+                  onDeleteArea={() =>
+                    setConfirmation({
+                      title: "Delete area?",
+                      description: `Are you sure you want to delete ${area.areaName}? Its cabinets will also be deleted. This action cannot be undone.`,
+                      confirmLabel: "Delete",
+                      onConfirm: () =>
+                        saveProjectAreas(
+                          project.id,
+                          project.areas.filter((candidate) => candidate.id !== area.id)
+                        ),
+                    })
+                  }
+                  onEditArea={() => {
+                    setSelectedProjectId(project.id);
+                    setSelectedAreaId(area.id);
+                    setAreaEditId(area.id);
+                    setMode("detail");
                   }}
                   project={project}
                 />
@@ -1114,6 +1285,14 @@ export function ProjectWorkspace() {
             {cutListViewMode === "cabinet" ? (
               <CutListMiniTable
                 cutLists={cutLists}
+                onDeleteCabinet={(cutList) =>
+                  setConfirmation({
+                    title: "Delete cabinet?",
+                    description: `Are you sure you want to delete cabinet ${cutList.code}? This action cannot be undone.`,
+                    confirmLabel: "Delete",
+                    onConfirm: () => removeModuleRecord("cutLists", cutList.id),
+                  })
+                }
                 onDuplicateCabinet={duplicateCabinet}
                 onEditCabinet={editCabinet}
                 onOpenCutList={openCutListDetail}
@@ -1124,6 +1303,7 @@ export function ProjectWorkspace() {
           </>
         )}
       </div>
+      <ConfirmationDialog config={confirmation} onClose={() => setConfirmation(null)} />
     </section>
   );
 }

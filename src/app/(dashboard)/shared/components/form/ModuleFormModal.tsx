@@ -224,7 +224,7 @@ function ProjectFields({
     areaCode: "",
     notes: "",
   });
-  const canSaveArea = Boolean(areaDraft.areaName.trim() && areaDraft.areaCode.trim());
+  const canSaveArea = Boolean(areaDraft.areaName.trim());
 
   const resetAreaDraft = () => {
     setAreaDraft({ id: "", areaName: "", areaCode: "", notes: "" });
@@ -240,7 +240,9 @@ function ProjectFields({
     const nextArea: ProjectAreaRecord = {
       id: areaDraft.id || makeId("area"),
       areaName,
-      areaCode: areaDraft.areaCode.trim().toUpperCase(),
+      areaCode:
+        areaDraft.areaCode.trim().toUpperCase() ||
+        generateNextNumber("A", areas.map((area) => area.areaCode)),
       notes: areaDraft.notes.trim(),
       createdAt: areas.find((area) => area.id === areaDraft.id)?.createdAt || now,
       updatedAt: now,
@@ -362,11 +364,12 @@ function ProjectFields({
           <label className="field">
             <span>Area Code</span>
             <input
+              readOnly={!areaDraft.id}
               value={areaDraft.areaCode}
               onChange={(event) =>
                 setAreaDraft((current) => ({ ...current, areaCode: event.target.value }))
               }
-              placeholder="KIT"
+              placeholder={generateNextNumber("A", areas.map((area) => area.areaCode))}
               type="text"
             />
           </label>

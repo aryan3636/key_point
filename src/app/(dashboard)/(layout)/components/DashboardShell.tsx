@@ -18,7 +18,14 @@ import { useAppState } from "@/app/context/app-state-context";
 import { useEffect, useState } from "react";
 
 export function DashboardShell() {
-  const { user, activeModule, formState, importState, cabinetFormState } = useAppState();
+  const {
+    user,
+    activeModule,
+    formState,
+    importState,
+    cabinetFormState,
+    workspaceNavigationKey,
+  } = useAppState();
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -42,13 +49,13 @@ export function DashboardShell() {
         {cabinetFormState ? (
           <CabinetFormPage />
         ) : activeModule === "dashboard" ? (
-          <DashboardView />
+          <DashboardView key={workspaceNavigationKey} />
         ) : activeModule === "cutLists" ? (
-          <CutListWorkspace />
+          <CutListWorkspace key={workspaceNavigationKey} />
         ) : activeModule === "projects" ? (
-          <ProjectWorkspace />
+          <ProjectWorkspace key={workspaceNavigationKey} />
         ) : (
-          <WithModuleWorkspace />
+          <WithModuleWorkspace key={workspaceNavigationKey} />
         )}
       </main>
       {!cabinetFormState && formState && (

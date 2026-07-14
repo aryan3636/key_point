@@ -85,6 +85,7 @@ type AppStateContextValue = {
   user: AuthUser | null;
   records: RecordsState;
   activeModule: ModuleKey;
+  workspaceNavigationKey: number;
   formState: FormState | null;
   importState: ImportState | null;
   itemActionState: ItemActionState | null;
@@ -404,6 +405,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
   const [user, setUser] = useState<AuthUser | null>(readStoredUser);
   const [records, setRecords] = useState<RecordsState>(readStoredRecords);
   const [activeModule, setActiveModuleState] = useState<ModuleKey>("dashboard");
+  const [workspaceNavigationKey, setWorkspaceNavigationKey] = useState(0);
   const [formState, setFormState] = useState<FormState | null>(null);
   const [importState, setImportState] = useState<ImportState | null>(null);
   const [itemActionState, setItemActionState] = useState<ItemActionState | null>(null);
@@ -485,7 +487,15 @@ export function AppStateProvider({ children }: PropsWithChildren) {
 
   const setActiveModule = (moduleKey: ModuleKey) => {
     setActiveModuleState(moduleKey);
+    setWorkspaceNavigationKey((current) => current + 1);
     setQuery("");
+    setFormState(null);
+    setImportState(null);
+    setItemActionState(null);
+    setDetailState(null);
+    setReceiveState(null);
+    setProjectCutListsState(null);
+    setCabinetFormState(null);
     if (moduleKey !== "items") {
       setItemDateFilter({ from: "", to: "" });
     }
@@ -575,7 +585,14 @@ export function AppStateProvider({ children }: PropsWithChildren) {
         const record: ProjectRecord = {
           id,
           name,
-          code: text("code"),
+          code:
+            text("code") ||
+            generateProjectJobNumber(
+              name,
+              current.projects
+                .filter((project) => project.id !== id)
+                .map((project) => project.code)
+            ),
           customerName: text("customerName"),
           siteAddress,
           addressLine1,
@@ -1293,6 +1310,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     user,
     records,
     activeModule,
+    workspaceNavigationKey,
     formState,
     importState,
     itemActionState,
