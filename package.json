@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "check:cutlist-parity": "node scripts/check-cutlist-parity.cjs",
     "start": "next start",
     "lint": "eslint"
   },

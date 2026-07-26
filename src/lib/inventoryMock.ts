@@ -45,6 +45,34 @@ export type ProjectAreaRecord = {
   updatedAt: string;
 };
 
+export type ProjectSettings = {
+  inputUnit: "in" | "mm";
+  interiorMaterial: string;
+  customMaterialName: string;
+  customMaterialThickness: number;
+  materialThickness: number;
+  doorThickness: number;
+  bumperAllowance: number;
+  shelfType: "Fixed Shelf" | "Adjustable Shelf - Pins" | "Adjustable Shelf - Pilasters";
+  shelfFinish: string;
+  slideType: "ballBearing" | "undermount";
+  cabinetStatus: "Draft" | "Ready" | "Issued";
+};
+
+export const defaultProjectSettings: ProjectSettings = {
+  inputUnit: "in",
+  interiorMaterial: "5/8 White Melamine",
+  customMaterialName: "",
+  customMaterialThickness: 0,
+  materialThickness: 0.625,
+  doorThickness: 0.75,
+  bumperAllowance: 0.125,
+  shelfType: "Fixed Shelf",
+  shelfFinish: "White",
+  slideType: "undermount",
+  cabinetStatus: "Draft",
+};
+
 export type ProjectRecord = {
   id: string;
   name: string;
@@ -63,6 +91,7 @@ export type ProjectRecord = {
   budget: number;
   notes: string;
   areas: ProjectAreaRecord[];
+  settings: ProjectSettings;
   updatedAt: string;
 };
 
@@ -368,6 +397,7 @@ export function seedRecords(): RecordsState {
             updatedAt: "2026-04-06T10:45:00.000Z",
           },
         ],
+        settings: { ...defaultProjectSettings },
         updatedAt: "2026-04-06T10:45:00.000Z",
       },
       {
@@ -397,6 +427,7 @@ export function seedRecords(): RecordsState {
             updatedAt: "2026-04-05T16:20:00.000Z",
           },
         ],
+        settings: { ...defaultProjectSettings },
         updatedAt: "2026-04-05T16:20:00.000Z",
       },
       {
@@ -417,6 +448,7 @@ export function seedRecords(): RecordsState {
         budget: 2150000,
         notes: "Planning stage. Areas will be added after site measurement.",
         areas: [],
+        settings: { ...defaultProjectSettings },
         updatedAt: "2026-04-03T11:30:00.000Z",
       },
     ],

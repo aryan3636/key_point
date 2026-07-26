@@ -4,6 +4,7 @@ import {
   AUTH_KEY,
   AuthUser,
   CutListRecord,
+  defaultProjectSettings,
   generateNextCabinetCode,
   generateNextNumber,
   generateProjectJobNumber,
@@ -16,6 +17,7 @@ import {
   MovementRecord,
   ProjectAreaRecord,
   ProjectRecord,
+  ProjectSettings,
   PurchaseOrderRecord,
   ReceiptRecord,
   RecordsState,
@@ -176,7 +178,7 @@ function normalizeStoredCutList(record: Partial<CutListRecord>): CutListRecord {
     width: record.width || 0,
     height: record.height || 0,
     depth: record.depth || 0,
-    quantity: record.quantity || 1,
+    quantity: Math.max(1, Math.round(record.quantity || 1)),
     interiorMaterial: record.interiorMaterial || "5/8 White Melamine",
     customMaterialName: record.customMaterialName || "",
     customMaterialThickness: record.customMaterialThickness || 0,
@@ -188,12 +190,12 @@ function normalizeStoredCutList(record: Partial<CutListRecord>): CutListRecord {
     finishedMaterialThicknessM2: record.finishedMaterialThicknessM2 || 0,
     lightValanceHeight: record.lightValanceHeight || 0,
     backOption: record.backOption || "fullBack",
-    shelfQty: record.shelfQty || 0,
+    shelfQty: Math.max(0, Math.round(record.shelfQty || 0)),
     shelfType: record.shelfType || "Fixed Shelf",
     shelfFinish: record.shelfFinish || "White",
     slideType: record.slideType || "",
     slideLength: record.slideLength || 0,
-    drawerQty: record.drawerQty || 0,
+    drawerQty: Math.max(0, Math.round(record.drawerQty || 0)),
     drawerHeights: Array.isArray(record.drawerHeights) ? record.drawerHeights : [],
     status: record.status || "Draft",
     notes: record.notes || "",
@@ -217,6 +219,10 @@ function normalizeStoredProjectArea(record: Partial<ProjectAreaRecord>): Project
 
 function normalizeStoredProject(record: Partial<ProjectRecord>): ProjectRecord {
   const siteAddress = record.siteAddress || record.location || "";
+  const settings: ProjectSettings = {
+    ...defaultProjectSettings,
+    ...(record.settings ?? {}),
+  };
 
   return {
     id: record.id || makeId("pro"),
@@ -238,6 +244,7 @@ function normalizeStoredProject(record: Partial<ProjectRecord>): ProjectRecord {
     areas: Array.isArray(record.areas)
       ? record.areas.map((area) => normalizeStoredProjectArea(area))
       : [],
+    settings,
     updatedAt: record.updatedAt || new Date().toISOString(),
   };
 }
@@ -607,6 +614,26 @@ export function AppStateProvider({ children }: PropsWithChildren) {
           budget: number("budget"),
           notes: text("notes"),
           areas: parseProjectAreas(text("areasJson"), now),
+          settings: {
+            inputUnit: normalizeInputUnit(text("settingsInputUnit")),
+            interiorMaterial:
+              text("settingsInteriorMaterial") || defaultProjectSettings.interiorMaterial,
+            customMaterialName: text("settingsCustomMaterialName"),
+            customMaterialThickness: number("settingsCustomMaterialThickness"),
+            materialThickness:
+              number("settingsMaterialThickness") || defaultProjectSettings.materialThickness,
+            doorThickness:
+              number("settingsDoorThickness") || defaultProjectSettings.doorThickness,
+            bumperAllowance:
+              number("settingsBumperAllowance") || defaultProjectSettings.bumperAllowance,
+            shelfType: (text("settingsShelfType") ||
+              defaultProjectSettings.shelfType) as ProjectSettings["shelfType"],
+            shelfFinish: text("settingsShelfFinish") || defaultProjectSettings.shelfFinish,
+            slideType: (text("settingsSlideType") ||
+              defaultProjectSettings.slideType) as ProjectSettings["slideType"],
+            cabinetStatus: (text("settingsCabinetStatus") ||
+              defaultProjectSettings.cabinetStatus) as ProjectSettings["cabinetStatus"],
+          },
           updatedAt: now,
         };
         next.projects = sortByUpdatedAt(
@@ -648,25 +675,27 @@ export function AppStateProvider({ children }: PropsWithChildren) {
           width: toInches(number("width"), inputUnit),
           height: toInches(number("height"), inputUnit),
           depth: toInches(number("depth"), inputUnit),
-          quantity: number("quantity") || 1,
+          quantity: Math.max(1, Math.round(number("quantity") || 1)),
           interiorMaterial: resolvedMaterial.interiorMaterial,
           customMaterialName: rawMaterial.customMaterialName,
           customMaterialThickness: rawMaterial.customMaterialThickness,
           materialThickness: resolvedMaterial.materialThickness,
           doorThickness: toInches(number("doorThickness"), inputUnit) || 0.75,
-          bumperAllowance: toInches(number("bumperAllowance"), inputUnit) || 0.125,
+          // Bumper allowance is a shop standard stored in inches in the HTML reference,
+          // independent of the cabinet-entry measurement unit.
+          bumperAllowance: number("bumperAllowance") || 0.125,
           finishedSides: (text("finishedSides") || "Front") as CutListRecord["finishedSides"],
           upperBottomCondition: (text("upperBottomCondition") ||
             "Regular / Visible Bottom") as CutListRecord["upperBottomCondition"],
           finishedMaterialThicknessM2: toInches(number("finishedMaterialThicknessM2"), inputUnit),
           lightValanceHeight: toInches(number("lightValanceHeight"), inputUnit),
           backOption: (text("backOption") || "fullBack") as CutListRecord["backOption"],
-          shelfQty: number("shelfQty"),
+          shelfQty: Math.max(0, Math.round(number("shelfQty"))),
           shelfType: (text("shelfType") || "Fixed Shelf") as CutListRecord["shelfType"],
           shelfFinish: text("shelfFinish") || "White",
           slideType: (text("slideType") || "") as CutListRecord["slideType"],
           slideLength: toInches(number("slideLength"), inputUnit),
-          drawerQty: number("drawerQty"),
+          drawerQty: Math.max(0, Math.round(number("drawerQty"))),
           drawerHeights: parseDrawerHeights(text("drawerHeights"), inputUnit),
           status: (text("status") || "Draft") as CutListRecord["status"],
           notes: text("notes"),
@@ -942,6 +971,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
                     }),
                   ]
                 : parseProjectAreas(row.areasJson || row.areas || "[]", now),
+              settings: { ...defaultProjectSettings },
               updatedAt: now,
             };
           }),
@@ -991,25 +1021,25 @@ export function AppStateProvider({ children }: PropsWithChildren) {
               width: toInches(Number(row.width || 30), inputUnit),
               height: toInches(Number(row.height || 34.5), inputUnit),
               depth: toInches(Number(row.depth || 24), inputUnit),
-              quantity: Number(row.quantity || 1),
+              quantity: Math.max(1, Math.round(Number(row.quantity || 1))),
               interiorMaterial: resolvedMaterial.interiorMaterial,
               customMaterialName: rawMaterial.customMaterialName,
               customMaterialThickness: rawMaterial.customMaterialThickness,
               materialThickness: resolvedMaterial.materialThickness,
               doorThickness: toInches(Number(row.doorThickness || 0.75), inputUnit),
-              bumperAllowance: toInches(Number(row.bumperAllowance || 0.125), inputUnit),
+              bumperAllowance: Number(row.bumperAllowance || 0.125),
               finishedSides: (row.finishedSides || "Front") as CutListRecord["finishedSides"],
               upperBottomCondition: (row.upperBottomCondition ||
                 "Regular / Visible Bottom") as CutListRecord["upperBottomCondition"],
               finishedMaterialThicknessM2: toInches(Number(row.finishedMaterialThicknessM2 || 0), inputUnit),
               lightValanceHeight: toInches(Number(row.lightValanceHeight || 0), inputUnit),
               backOption: (row.backOption || "fullBack") as CutListRecord["backOption"],
-              shelfQty: Number(row.shelfQty || 0),
+              shelfQty: Math.max(0, Math.round(Number(row.shelfQty || 0))),
               shelfType: (row.shelfType || "Fixed Shelf") as CutListRecord["shelfType"],
               shelfFinish: row.shelfFinish || "White",
               slideType: (row.slideType || row.drawerSlideType || "") as CutListRecord["slideType"],
               slideLength: toInches(Number(row.slideLength || 0), inputUnit),
-              drawerQty: Number(row.drawerQty || 0),
+              drawerQty: Math.max(0, Math.round(Number(row.drawerQty || 0))),
               drawerHeights: parseDrawerHeights(row.drawerHeights || "", inputUnit),
               status: (row.status || "Draft") as CutListRecord["status"],
               notes: row.notes || "Imported from CSV import flow.",

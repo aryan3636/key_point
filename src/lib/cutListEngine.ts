@@ -49,16 +49,20 @@ function round(value: unknown, increment = 0.001) {
   return Math.round((number + Number.EPSILON) / increment) * increment;
 }
 
+function roundToSixteenth(value: unknown) {
+  return round(value, 1 / 16);
+}
+
 function normalizeFinish(value: string) {
   return value.trim().toUpperCase() || "-";
 }
 
-function calculateBoxDepth(cabinet: CutListRecord) {
+function calculateBoxDepth(cabinet: CutListRecord, roundedDepth = roundToSixteenth(cabinet.depth)) {
   const doorDeduction =
     cabinet.finishedSides === "Front and Back"
       ? cabinet.doorThickness * 2
       : cabinet.doorThickness;
-  return round(cabinet.depth - doorDeduction - cabinet.bumperAllowance);
+  return round(roundedDepth - doorDeduction - cabinet.bumperAllowance);
 }
 
 function getUpperBottomDeduction(cabinet: CutListRecord) {
@@ -81,21 +85,27 @@ function getUpperBottomConditionNote(cabinet: CutListRecord) {
   return "-";
 }
 
-function calculateUpperBoxDepth(cabinet: CutListRecord) {
-  return round(cabinet.depth - cabinet.doorThickness - cabinet.bumperAllowance);
+function calculateUpperBoxDepth(
+  cabinet: CutListRecord,
+  roundedDepth = roundToSixteenth(cabinet.depth)
+) {
+  return round(roundedDepth - cabinet.doorThickness - cabinet.bumperAllowance);
 }
 
-function calculateUpperBoxHeight(cabinet: CutListRecord) {
-  return round(cabinet.height - getUpperBottomDeduction(cabinet));
+function calculateUpperBoxHeight(
+  cabinet: CutListRecord,
+  roundedHeight = roundToSixteenth(cabinet.height)
+) {
+  return round(roundedHeight - getUpperBottomDeduction(cabinet));
 }
 
-function calculateShelfWidth(cabinet: CutListRecord) {
+function calculateShelfWidth(cabinet: CutListRecord, roundedWidth = roundToSixteenth(cabinet.width)) {
   const clearances: Record<CutListRecord["shelfType"], number> = {
     "Fixed Shelf": 0,
     "Adjustable Shelf - Pins": 0.125,
     "Adjustable Shelf - Pilasters": 0.5,
   };
-  return round(cabinet.width - cabinet.materialThickness * 2 - clearances[cabinet.shelfType]);
+  return round(roundedWidth - cabinet.materialThickness * 2 - clearances[cabinet.shelfType]);
 }
 
 function calculateShelfDepth(cabinet: CutListRecord, boxDepth: number) {
@@ -121,6 +131,64 @@ function getDrawerEdgeBanding(partName: string) {
   return "1L";
 }
 
+function getCabinetMaterial(cabinet: CutListRecord) {
+  return cabinet.customMaterialName || cabinet.interiorMaterial;
+}
+
+export function getCutListValidationMessage(cabinet: CutListRecord) {
+  if (cabinet.cabinetCategory !== "Base" && cabinet.cabinetCategory !== "Upper") {
+    return "Cut list formula not implemented yet.";
+  }
+  if (!cabinet.width) return "Width required.";
+  if (!cabinet.height) return "Height required.";
+  if (!cabinet.depth) return "Full cabinet depth required.";
+  if (!cabinet.interiorMaterial) return "Interior material required.";
+  if (!cabinet.materialThickness) return "Material thickness required.";
+  if (!cabinet.doorThickness) return "Door thickness required for body depth.";
+  if (!cabinet.bumperAllowance) return "Bumper allowance required.";
+  if (!cabinet.quantity) return "Quantity is required.";
+  if (calculateBoxDepth(cabinet) <= 0) {
+    return "Invalid depth: full depth, door thickness, and bumper create zero or negative box depth.";
+  }
+
+  if (cabinet.cabinetCategory === "Upper") {
+    if (
+      cabinet.upperBottomCondition === UPPER_BOTTOM_CONDITION_FINISHED &&
+      !cabinet.finishedMaterialThicknessM2
+    ) {
+      return "Finished material thickness M2 required.";
+    }
+    if (
+      cabinet.upperBottomCondition === UPPER_BOTTOM_CONDITION_LIGHT_VALANCE &&
+      !cabinet.lightValanceHeight
+    ) {
+      return "Light valance height LV required.";
+    }
+    if (calculateUpperBoxHeight(cabinet) <= 0) {
+      return "Invalid upper height: bottom condition creates zero or negative upper box height.";
+    }
+  }
+
+  if (cabinet.cabinetSubtype === "Shelves") {
+    if (!cabinet.shelfQty) return "Shelf quantity required.";
+    if (!cabinet.shelfType) return "Shelf type required.";
+  }
+
+  if (cabinet.cabinetSubtype === "Drawer") {
+    if (!cabinet.slideType) return "Slide type required.";
+    if (!cabinet.slideLength) return "Slide length required.";
+    if (!cabinet.drawerQty) return "Drawer quantity required.";
+    if (
+      cabinet.drawerHeights.length !== cabinet.drawerQty ||
+      cabinet.drawerHeights.some((height) => !height)
+    ) {
+      return "Enter height for every drawer.";
+    }
+  }
+
+  return "";
+}
+
 function makeRow(
   cabinet: CutListRecord,
   projectName: string,
@@ -142,7 +210,7 @@ function roundDimension(value: number | string) {
   if (typeof value === "string") {
     return value;
   }
-  return Math.round((value + Number.EPSILON) * 1000) / 1000;
+  return Math.round((value + Number.EPSILON) * 10000) / 10000;
 }
 
 function sourceLabel(row: CutListPartRow) {
@@ -171,15 +239,24 @@ export function generateCabinetCutListRows(
   cabinet: CutListRecord,
   projects: ProjectRecord[]
 ): CutListPartRow[] {
-  if (!cabinet.width || !cabinet.height || !cabinet.depth || !cabinet.materialThickness) {
+  if (getCutListValidationMessage(cabinet)) {
     return [];
   }
 
   const projectName =
     projects.find((project) => project.id === cabinet.projectId)?.name ?? "No project";
+  if (cabinet.cabinetCategory !== "Base" && cabinet.cabinetCategory !== "Upper") {
+    return [];
+  }
+
   const quantity = cabinet.quantity || 1;
-  const insideWidth = round(cabinet.width - cabinet.materialThickness * 2);
-  const boxDepth = calculateBoxDepth(cabinet);
+  const width = roundToSixteenth(cabinet.width);
+  const height = roundToSixteenth(cabinet.height);
+  const depth = roundToSixteenth(cabinet.depth);
+  const insideWidth = width - cabinet.materialThickness * 2;
+  const backInsideWidth = cabinet.width - cabinet.materialThickness * 2;
+  const boxDepth = calculateBoxDepth(cabinet, depth);
+  const material = getCabinetMaterial(cabinet);
   const rows: CutListPartRow[] = [];
 
   if (cabinet.cabinetCategory === "Upper") {
@@ -199,8 +276,8 @@ export function generateCabinetCutListRows(
       return [];
     }
 
-    const upperBoxDepth = calculateUpperBoxDepth(cabinet);
-    const upperBoxHeight = calculateUpperBoxHeight(cabinet);
+    const upperBoxDepth = calculateUpperBoxDepth(cabinet, depth);
+    const upperBoxHeight = calculateUpperBoxHeight(cabinet, height);
 
     rows.push(
       makeRow(cabinet, projectName, {
@@ -209,7 +286,7 @@ export function generateCabinetCutListRows(
         heightDepth: upperBoxHeight - cabinet.materialThickness * 2,
         thickness: cabinet.materialThickness,
         edgeBanding: "None",
-        material: cabinet.interiorMaterial,
+        material,
         quantity,
         finish: "-",
         notes: "-",
@@ -220,9 +297,9 @@ export function generateCabinetCutListRows(
         heightDepth: upperBoxHeight,
         thickness: cabinet.materialThickness,
         edgeBanding: oneEdgeBanding(upperBoxHeight, upperBoxDepth),
-        material: cabinet.interiorMaterial,
+        material,
         quantity: 2 * quantity,
-        finish: normalizeFinish(cabinet.shelfFinish),
+        finish: material,
         notes: "MATCHING",
       }),
       makeRow(cabinet, projectName, {
@@ -231,9 +308,9 @@ export function generateCabinetCutListRows(
         heightDepth: upperBoxDepth,
         thickness: cabinet.materialThickness,
         edgeBanding: "1L",
-        material: cabinet.interiorMaterial,
+        material,
         quantity: 2 * quantity,
-        finish: normalizeFinish(cabinet.shelfFinish),
+        finish: material,
         notes: getUpperBottomConditionNote(cabinet),
       })
     );
@@ -242,11 +319,11 @@ export function generateCabinetCutListRows(
       rows.push(
         makeRow(cabinet, projectName, {
           partName: cabinet.shelfType,
-          width: calculateShelfWidth(cabinet),
+          width: calculateShelfWidth(cabinet, width),
           heightDepth: calculateShelfDepth(cabinet, upperBoxDepth),
           thickness: cabinet.materialThickness,
           edgeBanding: "2S2L",
-          material: cabinet.interiorMaterial,
+          material,
           quantity: cabinet.shelfQty * quantity,
           finish: normalizeFinish(cabinet.shelfFinish),
           notes: "-",
@@ -261,25 +338,25 @@ export function generateCabinetCutListRows(
     rows.push(
       makeRow(cabinet, projectName, {
         partName: "BACK RAIL",
-        width: insideWidth,
+        width: backInsideWidth,
         heightDepth: 3,
         thickness: cabinet.materialThickness,
         edgeBanding: "1L",
-        material: cabinet.interiorMaterial,
+        material,
         quantity: 2 * quantity,
         finish: "-",
-        notes: "Open back",
+        notes: "-",
       })
     );
   } else {
     rows.push(
       makeRow(cabinet, projectName, {
         partName: "BACK",
-        width: insideWidth,
+        width: backInsideWidth,
         heightDepth: cabinet.height - cabinet.materialThickness,
         thickness: cabinet.materialThickness,
         edgeBanding: "None",
-        material: cabinet.interiorMaterial,
+        material,
         quantity,
         finish: "-",
         notes: "-",
@@ -291,12 +368,12 @@ export function generateCabinetCutListRows(
     makeRow(cabinet, projectName, {
       partName: "GABLES",
       width: boxDepth,
-      heightDepth: cabinet.height,
+      heightDepth: height,
       thickness: cabinet.materialThickness,
-      edgeBanding: oneEdgeBanding(cabinet.height, boxDepth),
-      material: cabinet.interiorMaterial,
+      edgeBanding: oneEdgeBanding(height, boxDepth),
+      material,
       quantity: 2 * quantity,
-      finish: normalizeFinish(cabinet.shelfFinish),
+      finish: material,
       notes: "MATCHING",
     }),
     makeRow(cabinet, projectName, {
@@ -305,21 +382,21 @@ export function generateCabinetCutListRows(
       heightDepth: boxDepth,
       thickness: cabinet.materialThickness,
       edgeBanding: "1L",
-      material: cabinet.interiorMaterial,
+      material,
       quantity,
-      finish: normalizeFinish(cabinet.shelfFinish),
+      finish: material,
       notes: "MATCHING",
     }),
     makeRow(cabinet, projectName, {
       partName: "STRETCHER",
-      width: calculateStretcherWidth(cabinet.depth),
+      width: calculateStretcherWidth(depth),
       heightDepth: insideWidth,
       thickness: cabinet.materialThickness,
       edgeBanding: "1L",
-      material: cabinet.interiorMaterial,
+      material,
       quantity: 2 * quantity,
-      finish: normalizeFinish(cabinet.shelfFinish),
-      notes: normalizeFinish(cabinet.shelfFinish),
+      finish: material,
+      notes: normalizeFinish(material),
     })
   );
 
@@ -327,11 +404,11 @@ export function generateCabinetCutListRows(
     rows.push(
       makeRow(cabinet, projectName, {
         partName: cabinet.shelfType,
-        width: calculateShelfWidth(cabinet),
+        width: calculateShelfWidth(cabinet, width),
         heightDepth: calculateShelfDepth(cabinet, boxDepth),
         thickness: cabinet.materialThickness,
-        edgeBanding: cabinet.shelfType === "Fixed Shelf" ? "1L" : "2L2S",
-        material: cabinet.interiorMaterial,
+        edgeBanding: "2S2L",
+        material,
         quantity: cabinet.shelfQty * quantity,
         finish: normalizeFinish(cabinet.shelfFinish),
         notes: "-",
@@ -361,9 +438,9 @@ export function generateCabinetCutListRows(
           heightDepth: drawerHeight - DRAWER_SIDE_HEIGHT_DEDUCTION,
           thickness: cabinet.materialThickness,
           edgeBanding: getDrawerEdgeBanding("Drawer Side"),
-          material: cabinet.interiorMaterial,
+          material,
           quantity: 2 * quantity,
-          finish: normalizeFinish(cabinet.shelfFinish),
+          finish: material,
           notes: note,
         }),
         makeRow(cabinet, projectName, {
@@ -372,9 +449,9 @@ export function generateCabinetCutListRows(
           heightDepth: drawerPartWidth,
           thickness: cabinet.materialThickness,
           edgeBanding: getDrawerEdgeBanding("Drawer Bottom"),
-          material: cabinet.interiorMaterial,
+          material,
           quantity,
-          finish: normalizeFinish(cabinet.shelfFinish),
+          finish: material,
           notes: note,
         }),
         makeRow(cabinet, projectName, {
@@ -387,9 +464,9 @@ export function generateCabinetCutListRows(
             frontBackSlideDeduction,
           thickness: cabinet.materialThickness,
           edgeBanding: getDrawerEdgeBanding("Drawer Front & Back"),
-          material: cabinet.interiorMaterial,
+          material,
           quantity: 2 * quantity,
-          finish: normalizeFinish(cabinet.shelfFinish),
+          finish: material,
           notes: note,
         })
       );
@@ -400,6 +477,9 @@ export function generateCabinetCutListRows(
 }
 
 export function generateAllCabinetRows(cabinets: CutListRecord[], projects: ProjectRecord[]) {
+  if (cabinets.some((cabinet) => getCutListValidationMessage(cabinet))) {
+    return [];
+  }
   return cabinets.flatMap((cabinet) => generateCabinetCutListRows(cabinet, projects));
 }
 

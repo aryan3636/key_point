@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useAppState } from "@/app/context/app-state-context";
 import {
   CutListRecord,
+  defaultProjectSettings,
   generateNextNumber,
   makeId,
   ProjectAreaRecord,
@@ -54,6 +55,7 @@ function ProjectFormPage({
     project?.status && !projectStatuses.includes(project.status)
       ? [project.status, ...projectStatuses]
       : projectStatuses;
+  const settings = project?.settings ?? defaultProjectSettings;
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -145,6 +147,84 @@ function ProjectFormPage({
                   defaultValue={project?.siteAddress ?? project?.location ?? project?.addressLine1 ?? ""}
                   placeholder="Site or address"
                 />
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset className="form-section">
+            <legend>Project Settings</legend>
+            <p className="form-section-help">
+              These shop standards are filled into every new cabinet so cabinet forms stay short.
+              They can still be overridden for a one-off cabinet.
+            </p>
+            <div className="form-grid">
+              <label className="field">
+                <span>Measurement Unit</span>
+                <select name="settingsInputUnit" defaultValue={settings.inputUnit}>
+                  <option value="in">in</option>
+                  <option value="mm">mm</option>
+                </select>
+              </label>
+              <label className="field">
+                <span>Interior Material</span>
+                <select name="settingsInteriorMaterial" defaultValue={settings.interiorMaterial}>
+                  <option value="5/8 White Melamine">5/8 White Melamine</option>
+                  <option value="3/4 White Melamine">3/4 White Melamine</option>
+                  <option value="5/8 Plywood">5/8 Plywood</option>
+                  <option value="3/4 Plywood">3/4 Plywood</option>
+                  <option value="Custom">Custom</option>
+                </select>
+              </label>
+              <label className="field">
+                <span>Custom Material Name</span>
+                <input name="settingsCustomMaterialName" defaultValue={settings.customMaterialName} />
+              </label>
+              <label className="field">
+                <span>Custom Material Thickness</span>
+                <input name="settingsCustomMaterialThickness" type="number" min="0" step="0.001" defaultValue={settings.customMaterialThickness} />
+              </label>
+              <label className="field">
+                <span>Material Thickness</span>
+                <input name="settingsMaterialThickness" type="number" min="0" step="0.001" defaultValue={settings.materialThickness} />
+              </label>
+              <label className="field">
+                <span>Door Thickness</span>
+                <input name="settingsDoorThickness" type="number" min="0" step="0.001" defaultValue={settings.doorThickness} />
+              </label>
+              <label className="field">
+                <span>Bumper Allowance</span>
+                <input name="settingsBumperAllowance" type="number" min="0" step="0.001" defaultValue={settings.bumperAllowance} />
+              </label>
+              <label className="field">
+                <span>Default Shelf Type</span>
+                <select name="settingsShelfType" defaultValue={settings.shelfType}>
+                  <option value="Fixed Shelf">Fixed Shelf</option>
+                  <option value="Adjustable Shelf - Pins">Adjustable Shelf - Pins</option>
+                  <option value="Adjustable Shelf - Pilasters">Adjustable Shelf - Pilasters</option>
+                </select>
+              </label>
+              <label className="field">
+                <span>Default Shelf Finish</span>
+                <select name="settingsShelfFinish" defaultValue={settings.shelfFinish}>
+                  <option value="White">White</option>
+                  <option value="Black">Black</option>
+                  <option value="Matching">Matching</option>
+                </select>
+              </label>
+              <label className="field">
+                <span>Default Drawer Slide</span>
+                <select name="settingsSlideType" defaultValue={settings.slideType}>
+                  <option value="ballBearing">Ball Bearing</option>
+                  <option value="undermount">Undermount</option>
+                </select>
+              </label>
+              <label className="field">
+                <span>New Cabinet Status</span>
+                <select name="settingsCabinetStatus" defaultValue={settings.cabinetStatus}>
+                  <option value="Draft">Draft</option>
+                  <option value="Ready">Ready</option>
+                  <option value="Issued">Issued</option>
+                </select>
               </label>
             </div>
           </fieldset>
@@ -248,6 +328,22 @@ function ProjectDetailPage({
         <section className="detail-section">
           <h3>Project Notes</h3>
           <p>{project.notes || "No notes yet."}</p>
+        </section>
+
+        <section className="detail-section">
+          <div className="section-header">
+            <div>
+              <h3>Project Settings</h3>
+              <p>Defaults applied to every new cabinet in this project.</p>
+            </div>
+            <button className="secondary-button" onClick={onEdit} type="button">Edit Settings</button>
+          </div>
+          <div className="detail-grid">
+            <article className="info-card"><small>Material</small><strong>{project.settings.interiorMaterial}</strong></article>
+            <article className="info-card"><small>Door / Bumper</small><strong>{project.settings.doorThickness} {project.settings.inputUnit} / {project.settings.bumperAllowance} in</strong></article>
+            <article className="info-card"><small>Shelves</small><strong>{project.settings.shelfType}</strong></article>
+            <article className="info-card"><small>Drawer Slides</small><strong>{project.settings.slideType === "ballBearing" ? "Ball Bearing" : "Undermount"}</strong></article>
+          </div>
         </section>
 
         <section className="detail-section">

@@ -4,6 +4,7 @@ import { FormEvent, ReactNode, useState } from "react";
 import { useAppState } from "@/app/context/app-state-context";
 import {
   CutListRecord,
+  ProjectSettings,
   generateNextCabinetCode,
   getCabinetCodePrefix,
 } from "@/lib/inventoryMock";
@@ -96,7 +97,7 @@ function isPositiveNumber(value: unknown) {
 function getBoxDepth(values: CabinetFormValues) {
   const fullDepth = toInches(values.depth, values.inputUnit);
   const doorThickness = toInches(values.doorThickness, values.inputUnit);
-  const bumperAllowance = toInches(values.bumperAllowance, values.inputUnit);
+  const bumperAllowance = Number(values.bumperAllowance) || 0;
 
   if (values.cabinetCategory === "Upper") {
     return fullDepth - doorThickness - bumperAllowance;
@@ -280,7 +281,7 @@ function validateCabinetValues({
   if (!isPositiveNumber(toInches(values.doorThickness, values.inputUnit))) {
     return "Door thickness required for body depth.";
   }
-  if (!isPositiveNumber(toInches(values.bumperAllowance, values.inputUnit))) {
+  if (!isPositiveNumber(values.bumperAllowance)) {
     return "Bumper allowance required.";
   }
   if (!values.finishedSides) return "Finished sides required.";
@@ -350,14 +351,16 @@ function validateCabinetValues({
 function makeDefaults(
   record: CutListRecord | undefined,
   nextCode: string,
-  preserveCode = true
+  preserveCode = true,
+  projectSettings?: ProjectSettings
 ): CabinetFormValues {
+  const settings = projectSettings;
   return {
     code: preserveCode && record?.code ? record.code : nextCode,
     itemName: record?.itemName ?? "",
     cabinetCategory: record?.cabinetCategory ?? "Base",
     cabinetSubtype: record?.cabinetSubtype ?? "Standard",
-    inputUnit: record?.inputUnit ?? "in",
+    inputUnit: record?.inputUnit ?? settings?.inputUnit ?? "in",
     width: String(record?.width ?? ""),
     height: String(record?.height ?? ""),
     depth: String(record?.depth ?? ""),
@@ -366,27 +369,27 @@ function makeDefaults(
       ? record.customMaterialName
         ? "Custom"
         : record.interiorMaterial
-      : "",
-    customMaterialName: record?.customMaterialName ?? "",
-    customMaterialThickness: String(record?.customMaterialThickness ?? ""),
-    materialThickness: String(record?.materialThickness ?? ""),
-    doorThickness: String(record?.doorThickness ?? ""),
-    bumperAllowance: String(record?.bumperAllowance ?? 0.125),
+      : settings?.interiorMaterial ?? "",
+    customMaterialName: record?.customMaterialName ?? settings?.customMaterialName ?? "",
+    customMaterialThickness: String(record?.customMaterialThickness ?? settings?.customMaterialThickness ?? ""),
+    materialThickness: String(record?.materialThickness ?? settings?.materialThickness ?? ""),
+    doorThickness: String(record?.doorThickness ?? settings?.doorThickness ?? ""),
+    bumperAllowance: String(record?.bumperAllowance ?? settings?.bumperAllowance ?? 0.125),
     finishedSides: record?.finishedSides ?? "Front",
     upperBottomCondition: record?.upperBottomCondition ?? "Regular / Visible Bottom",
     finishedMaterialThicknessM2: String(record?.finishedMaterialThicknessM2 ?? ""),
     lightValanceHeight: String(record?.lightValanceHeight ?? ""),
     backOption: record?.backOption ?? "fullBack",
     shelfQty: String(record?.shelfQty ?? 0),
-    shelfType: record?.shelfType ?? "Fixed Shelf",
-    shelfFinish: record?.shelfFinish ?? "White",
-    slideType: record?.slideType ?? "undermount",
+    shelfType: record?.shelfType ?? settings?.shelfType ?? "Fixed Shelf",
+    shelfFinish: record?.shelfFinish ?? settings?.shelfFinish ?? "White",
+    slideType: record?.slideType ?? settings?.slideType ?? "undermount",
     slideLength: String(record?.slideLength ?? ""),
     drawerQty: String(record?.drawerQty ?? 0),
     drawerHeights: Array.isArray(record?.drawerHeights)
       ? record.drawerHeights.map((height) => String(height))
       : [],
-    status: record?.status ?? "Draft",
+    status: record?.status ?? settings?.cabinetStatus ?? "Draft",
     notes: record?.notes ?? record?.itemName ?? "",
   };
 }
@@ -444,8 +447,9 @@ export function CabinetFormPage() {
     defaultRecord?.cabinetSubtype ?? "Standard"
   );
   const [values, setValues] = useState<CabinetFormValues>(() =>
-    makeDefaults(defaultRecord, nextCode, Boolean(existingRecord))
+    makeDefaults(defaultRecord, nextCode, Boolean(existingRecord), project?.settings)
   );
+  const [showProjectOverrides, setShowProjectOverrides] = useState(Boolean(defaultRecord));
   const [formError, setFormError] = useState("");
   const [formMessage, setFormMessage] = useState("Enter cabinet dimensions, then save the row.");
 
@@ -594,7 +598,8 @@ export function CabinetFormPage() {
       getCabinetCodePrefix("Base", "Standard"),
       [...records.cutLists.map((cutList) => cutList.code), reservedCode].filter(Boolean)
     );
-    setValues(makeDefaults(undefined, nextBaseCode, false));
+    setValues(makeDefaults(undefined, nextBaseCode, false, project.settings));
+    setShowProjectOverrides(false);
     setFormError("");
     setFormMessage(message);
   };
@@ -742,7 +747,18 @@ export function CabinetFormPage() {
           </fieldset>
 
           <fieldset className="form-section">
-            <legend>Material Settings</legend>
+            <legend>Project Defaults</legend>
+            <div className="project-defaults-bar">
+              <p>
+                {defaultRecord ? "Cabinet-specific values:" : "Using Project Settings:"}{" "}
+                <strong>{values.interiorMaterial}</strong>, {values.doorThickness} {values.inputUnit} doors,
+                and {values.bumperAllowance} in bumper allowance.
+              </p>
+              <button className="secondary-button" type="button" onClick={() => setShowProjectOverrides((current) => !current)}>
+                {showProjectOverrides ? "Hide Overrides" : "Override for this Cabinet"}
+              </button>
+            </div>
+            {showProjectOverrides && <>
             <div className="form-grid">
               <Field label="Interior Material" required>
                 <select
@@ -802,6 +818,7 @@ export function CabinetFormPage() {
                 <input readOnly value={getBoxDepth(values) > 0 ? formatDimension(getBoxDepth(values)) : ""} />
               </Field>
             </div>
+            </>}
           </fieldset>
 
           {showUpperOptions && (

@@ -6,6 +6,7 @@ import { ModuleTable } from "@/app/(dashboard)/hoc/with-module-workspace/compone
 import {
   CutListPartRow,
   generateAllCabinetRows,
+  getCutListValidationMessage,
   getGroupedProductionRows,
   groupRowsByCabinet,
   groupProductionRowsByFamily,
@@ -126,6 +127,13 @@ export function CutListWorkspace() {
     () => generateAllCabinetRows(cutLists, records.projects),
     [cutLists, records.projects]
   );
+  const validationWarnings = useMemo(
+    () =>
+      cutLists
+        .map((row) => ({ code: row.code || "(unsaved)", message: getCutListValidationMessage(row) }))
+        .filter((warning) => warning.message),
+    [cutLists]
+  );
   const cabinetGroups = useMemo(() => groupRowsByCabinet(cabinetRows), [cabinetRows]);
   const productionRows = useMemo(() => getGroupedProductionRows(cabinetRows), [cabinetRows]);
   const productionFamilies = useMemo(
@@ -180,6 +188,13 @@ export function CutListWorkspace() {
             <strong>{activeProjects.size}</strong>
           </article>
         </div>
+
+        {validationWarnings.length > 0 && (
+          <div className="form-message error">
+            Fix validation errors before generating cut lists:{" "}
+            {validationWarnings.map((warning) => `${warning.code}: ${warning.message}`).join(" ")}
+          </div>
+        )}
 
         <ModuleTable
           moduleKey="cutLists"
